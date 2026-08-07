@@ -1,0 +1,25 @@
+# OS cruft
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Exported research data — the professor's corpora and audit files are hers,
+# and can be large. Sample data in samples/ is committed on purpose.
+whistling-archive-*.json
+whistling-corpus-*.json
+whistling-corpus-*.md
+whistling-library-*.csv
+whistling-results-*.csv
+audit-packet-*.json
+audit-coding-*.json
+my-findings-*.md
+*-dataset.json
+*-manifest.json
+
+# Chart exports
+*.svg.download
