@@ -518,6 +518,25 @@ user can view/edit. Override always wins and is marked as user-set.
   live `matchMedia` listener, which is both more correct and what let the reduced-motion path be verified.
   *Verified against a real 99-record corpus* (70 fetched from Chronicling America + the sample tour CSV):
   filtered row counts cross-check exactly against heatmap cell and column totals.
+- **Pipeline speed pass. ✅ DONE (2026-08-25).** "Build my corpus" was serial end to end; three changes,
+  none of which touch the politeness promises:
+  1. **Pooled text fetch.** ALTO pages are 1–5 MB, so download latency dominated (~0.3–0.7 pages/s
+     serial). `CA.fetchText` now runs `TEXT_POOL=5` downloads in flight with request *starts* spaced
+     `TEXT_SPACING=450 ms` on a shared reserved-slot clock — a hard ≤133 starts/min, under the LoC
+     storage cap of 150/min. Sustained ceiling ≈2.2 pages/s (**~3–6× real-world**). A single 429 brakes
+     *all* workers for 8 s. Mocked-network test: 20 pages in 12 s vs 34 s serial, ≤5 in flight.
+  2. **Timeouts everywhere.** 20 s `AbortController` on the search JSON and every ALTO fetch, 15 s on
+     Nominatim — a stalled request now costs one timeout, never the run (the previous serial fetch could
+     hang forever on a blackholed host, observed live under LoC throttling). `getJSON` also consults a
+     `stopped` predicate between retries, so **Stop answers within ≤20 s** on a dead host (measured
+     18.7 s; was ~90 s worst case) and instantly on a healthy one.
+  3. **Geocoding overlaps the text fetch.** Places come from *search metadata*, not OCR text, so
+     `Geo.run` (Nominatim, its own 1 req/1.1 s host) starts right after the search and runs alongside
+     stage 2 — its entire duration disappears into the text window. On pipeline error `Geo.stop()` is
+     called so nothing runs on unnoticed.
+  Progress now reports live rate and ETA ("2.1/s · ~3 min left"). The politeness floors are **pinned by
+  two self-checks** (`TEXT_SPACING≥420 ∧ pool≤6 ∧ ≤150/min`; `JSON_SPACING≥3400`) so a future speed pass
+  cannot quietly break the rate-limit promise. Self-check total: 18.
 - **Scholarly apparatus. ✅ DONE (2026-08-07).** Built so the corpus survives peer review (AD-015):
   1. **Fetch run log** — silent provenance for every harvest run.
   2. **Corpus manifest, freeze & citable bundle** — Settings → *Corpus & method*. Freeze a version; export

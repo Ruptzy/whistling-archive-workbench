@@ -63,6 +63,12 @@ import, search, annotate, and visualize historical newspaper mentions of whistli
   Add a step by inserting a stage there and bumping `STAGES` — don't rewrite the step functions; they
   still power the "Advanced: run steps individually" buttons. Keep `AIExtract` **out** of the default
   path (it must never require a key). Presets live in `Settings.searchPresets`.
+  **Speed vs politeness (2026-08-25):** `CA.fetchText` is a 5-worker pool whose request starts share a
+  reserved-slot clock (`TEXT_SPACING=450ms` ⇒ ≤133/min, under LoC's 150/min); one 429 brakes all workers.
+  `Geo.run` overlaps the text stage (different host; places come from search metadata, not OCR). All
+  network loops carry `AbortController` timeouts, and `getJSON` takes a `stopped` predicate so Stop
+  answers within one timeout. The politeness constants are pinned by self-checks — make it faster only
+  by raising concurrency *behind the same start-rate*, never by shrinking the spacing floors.
 - **Charts go through `Kit` (AD-014).** Never hand-roll axes, ticks, tooltips or colours in a new chart —
   compose from `Kit` (`ticksCount`/`ticksYears`, `gridY`, `txt`, `band`/`lin`, `interact`, `mount`) so every
   figure keeps one grammar and inherits SVG/PNG export for free. Colours come from `Kit.palette()` (AD-010

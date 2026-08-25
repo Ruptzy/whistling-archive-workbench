@@ -2515,9 +2515,17 @@ async function runPipeline(){
     archLog(`   ✓ ${created.length} new record(s) found.`); refreshScopeSel();
     stage=1; setBar(0);
 
+    // Places come from the search metadata, not the OCR text — so geocoding
+    // (Nominatim, its own 1/s host) runs ALONGSIDE the text fetch, not after it.
+    let geoMsg="", geoP=null;
+    const geoNeed=Store.all().filter(r=>(r.lat==null||r.lng==null)&&r.city).length;
+    if(!_pipeCancel && geoNeed){
+      archLog(`   … placing ${geoNeed} record(s) on the map in parallel.`);
+      geoP=Geo.run({onProgress:(m)=>{ geoMsg=m; }}).catch(()=>0);
+    }
     if(!_pipeCancel && CA.pendingCount()){
       archLog(`2/5 Fetching the article text for ${CA.pendingCount()} page(s)…`);
-      const ok=await CA.fetchText({onProgress:(m,f)=>say(m,f)});
+      const ok=await CA.fetchText({onProgress:(m,f)=>say(m+(geoMsg?"  ·  "+geoMsg:""),f)});
       archLog(`   ✓ text retrieved for ${ok} page(s).`);
     } else archLog("2/5 Article text — nothing pending, skipped.");
     repairEntities();   // belt-and-braces: nothing harvested keeps raw character references
@@ -2533,13 +2541,13 @@ async function runPipeline(){
                 : `4/5 Performers — no clear names in this batch. Try “3b · Enrich with AI” under Advanced for harder pages.`); }
     stage=4; setBar(0);
 
-    if(!_pipeCancel){
-      const miss=Store.all().filter(r=>(r.lat==null||r.lng==null)&&r.city).length;
-      if(miss){ archLog(`5/5 Placing ${miss} record(s) on the map…`);
-        archLog(`   ✓ ${await Geo.run({onProgress:(m,f)=>say(m,f)})} new place(s) geocoded.`); }
-      else archLog("5/5 Map places — everything with a city is already placed.");
-    }
-  }catch(e){ archLog("⚠ "+e.message); toast("Pipeline stopped: "+e.message,"err"); }
+    if(geoP){ say("Finishing the map places…");
+      const g=await geoP;
+      archLog(`5/5 Map places — ${g} new place(s) geocoded (ran alongside the text fetch).`);
+      const left=Store.all().filter(r=>(r.lat==null||r.lng==null)&&r.city).length;
+      if(left&&!_pipeCancel) archLog(`   ${left} cit${left===1?"y":"ies"} could not be placed — the Map's “Geocode online” can retry them.`);
+    } else archLog("5/5 Map places — everything with a city is already placed.");
+  }catch(e){ archLog("⚠ "+e.message); toast("Pipeline stopped: "+e.message,"err"); Geo.stop(); }
   stage=STAGES; setBar(0);
   archBusy(false); $("#archBar").style.width="0%"; updateArchStatus();
   archLog(_pipeCancel ? "■ Stopped. Press “Build my corpus” again to carry on where you left off." : "✔ Done.");
@@ -4726,11 +4734,22 @@ const CA = (()=>{
   const SEARCH="https://www.loc.gov/search/";
   let cancel=false;
   const sleep=(ms)=>new Promise(r=>setTimeout(r,ms));
-  async function getJSON(url, tries=4){
+  // Politeness floors (pinned by self-checks — speed must never break these):
+  // JSON API <=20/min; tile.loc.gov storage <=150/min. We start text requests
+  // every TEXT_SPACING ms with TEXT_POOL in flight => ~133/min ceiling.
+  const JSON_SPACING=3500, TEXT_SPACING=450, TEXT_POOL=5, FETCH_TIMEOUT=20000;
+  async function fetchT(url){ const ctl=new AbortController();
+    const tm=setTimeout(()=>ctl.abort(),FETCH_TIMEOUT);
+    try{ return await fetch(url,{signal:ctl.signal}); } finally{ clearTimeout(tm); } }
+  // `stopped` is consulted between attempts so Stop answers within one
+  // timeout (<=20s), not after the whole retry ladder (~90s on a dead host).
+  async function getJSON(url, tries=4, stopped){
     for(let i=0;i<tries;i++){
-      try{ const r=await fetch(url); if(r.status===429){ await sleep(6000*(i+1)); continue; }
+      if(stopped&&stopped()) throw new Error("stopped");
+      try{ const r=await fetchT(url); if(r.status===429){ await sleep(6000*(i+1)); continue; }
         if(!r.ok) throw new Error("HTTP "+r.status); return await r.json(); }
-      catch(e){ if(i===tries-1) throw e; await sleep(2500*(i+1)); }
+      catch(e){ if(stopped&&stopped()) throw new Error("stopped");
+        if(i===tries-1) throw e; await sleep(2500*(i+1)); }
     }
   }
   // OCR file URL is derivable from the result's image_url (no extra JSON call):
@@ -4765,7 +4784,8 @@ const CA = (()=>{
         let url=`${SEARCH}?q=${q}&fa=partof:chronicling+america&fo=json&c=${pageC}&sp=${sp}`;
         if(startYear&&endYear) url+=`&dates=${startYear}/${endYear}`;
         onProgress&&onProgress(`Searching “${term}” — page ${sp}…  (${created.length} new hits)`);
-        let data; try{ data=await getJSON(url); }catch(e){ onProgress&&onProgress(`⚠ ${term}: ${e.message}`); break; }
+        let data; try{ data=await getJSON(url, 4, ()=>cancel); }
+        catch(e){ if(!cancel) onProgress&&onProgress(`⚠ ${term}: ${e.message}`); break; }
         const results=data.results||[];
         for(const res of results){ const key=res.url||res.id; if(!key||seen.has(key)) continue;
           seen.add(key); created.push(recFromResult(res, term)); if(created.length>=max) break; }
@@ -4790,40 +4810,61 @@ const CA = (()=>{
     m=/\/iiif\/([^/"]+)\/full/.exec(raw); if(m) return "https://tile.loc.gov/storage-services/"+m[1].replace(/:/g,"/")+".xml";
     return "";
   }
+  // ALTO pages are 1–5 MB, so download latency dominates: serially each page
+  // cost 1–3s + a flat sleep. A small pool overlaps the downloads while request
+  // STARTS stay spaced — same politeness, several times the throughput. One 429
+  // brakes every worker, and a stalled request costs 20s, never the whole run.
   async function fetchText(opts){
     cancel=false; const {onProgress}=opts;
-    const pending=Store.all().filter(r=>r.provenance==="chronicling-america" && !r.fullText && (r.altoUrl||r.sourceUrl));
-    let done=0, ok=0, dirty=0;
+    const all=Store.all().filter(r=>r.provenance==="chronicling-america" && !r.fullText && (r.altoUrl||r.sourceUrl));
+    const ready=all.filter(r=>r.altoUrl), backfill=all.filter(r=>!r.altoUrl&&r.sourceUrl);
+    let done=0, ok=0, dirty=0, nextStart=0; const t0=Date.now();
     const gaz=Settings.get("gazetteer");
-    for(const r of pending){ if(cancel) break;
-      onProgress&&onProgress(`Fetching full text ${done+1} / ${pending.length}  (${ok} retrieved)`, pending.length?done/pending.length:1);
-      try{
-        if(!r.altoUrl && r.sourceUrl){ // backfill OCR url for older records (one JSON call)
-          try{ const jr=await fetch(resourceJsonUrl(r.sourceUrl)); if(jr.ok) r.altoUrl=altoFromText(await jr.text()); }catch(_){}
-          await sleep(3500); // JSON API ≤20/min
-        }
-        if(r.altoUrl){ const resp=await fetch(r.altoUrl);
-          if(resp.status===429){ await sleep(8000); }
-          else if(resp.ok){ const text=altoToText(await resp.text());
-            if(text){ r.fullText=text; normalizeRecordText(r); if(!r.year) r.year=parseYear(text);
-              if(!r.categoryUserSet){ const s=suggestCategory(r); if(s) r.category=s; }
-              const g=gaz[(r.city||"").trim().toLowerCase()]; if(g&&r.lat==null){ r.lat=g.lat; r.lng=g.lng; }
-              ok++; dirty++; } }
-          await sleep(500); // storage ≤150/min
-        }
-      }
-      catch(e){ /* leave pending; resume later */ }
-      done++;
-      if(dirty>=20){ dirty=0; persist(); Store.notify(); } // batch UI/persist
-    }
+    const say=()=>{ if(!onProgress) return;
+      const el=(Date.now()-t0)/1000, rate=done/Math.max(1,el);
+      const eta=rate>0.05?Math.round((all.length-done)/rate):null;
+      onProgress(`Fetching full text ${done} / ${all.length}  (${ok} retrieved`
+        +(rate>0.05?` · ${rate.toFixed(1)}/s`:"")
+        +(eta!=null&&done<all.length?` · ~${eta>=90?Math.ceil(eta/60)+" min":eta+"s"} left`:"")+")",
+        all.length?done/all.length:1); };
+    const apply=(r,text)=>{ if(!text) return false;
+      r.fullText=text; normalizeRecordText(r); if(!r.year) r.year=parseYear(text);
+      if(!r.categoryUserSet){ const s2=suggestCategory(r); if(s2) r.category=s2; }
+      const g=gaz[(r.city||"").trim().toLowerCase()]; if(g&&r.lat==null){ r.lat=g.lat; r.lng=g.lng; }
+      return true; };
+    const one=async(r)=>{
+      try{ const resp=await fetchT(r.altoUrl);
+        if(resp.status===429){ nextStart=Math.max(nextStart,Date.now()+8000); }  // brake ALL workers
+        else if(resp.ok && apply(r, altoToText(await resp.text()))){ ok++; dirty++; }
+      }catch(_){ /* leave pending; resume later */ }
+      done++; say();
+      if(dirty>=25){ dirty=0; persist(); Store.notify(); } };
+    let i=0;
+    const worker=async()=>{ while(!cancel){
+      const k=i++; if(k>=ready.length) return;
+      const wait=nextStart-Date.now();                      // spaced starts, shared clock
+      nextStart=Math.max(Date.now(),nextStart)+TEXT_SPACING;
+      if(wait>0) await sleep(wait);
+      if(cancel) return;
+      await one(ready[k]); } };
+    say();
+    await Promise.all(Array.from({length:Math.min(TEXT_POOL,ready.length||1)},worker));
+    // older records lack an OCR url; deriving it needs the JSON API (<=20/min), so serial
+    for(const r of backfill){ if(cancel) break;
+      try{ const jr=await fetchT(resourceJsonUrl(r.sourceUrl)); if(jr.ok) r.altoUrl=altoFromText(await jr.text());
+        if(r.altoUrl){ const resp=await fetchT(r.altoUrl);
+          if(resp.ok && apply(r, altoToText(await resp.text()))){ ok++; dirty++; } } }
+      catch(_){ }
+      done++; say(); await sleep(JSON_SPACING); }
     persist(); Store.notify();
-    if(pending.length) logFetch({ kind:"text", attempted:pending.length, pagesRetrieved:ok, stopped:cancel });
-    onProgress&&onProgress(`Done — ${ok} page(s) of text retrieved` + (cancel?" (stopped)":"") + `. ${pending.length-done} still pending.`, 1);
+    if(all.length) logFetch({ kind:"text", attempted:all.length, pagesRetrieved:ok, stopped:cancel });
+    onProgress&&onProgress(`Done — ${ok} page(s) of text retrieved` + (cancel?" (stopped)":"") + `. ${all.length-done} still pending.`, 1);
     return ok;
   }
   function stop(){ cancel=true; }
   function pendingCount(){ return Store.all().filter(r=>r.provenance==="chronicling-america" && !r.fullText && (r.altoUrl||r.sourceUrl)).length; }
-  return { search, fetchText, stop, pendingCount, recFromResult };
+  return { search, fetchText, stop, pendingCount, recFromResult,
+           TEXT_SPACING, TEXT_POOL, JSON_SPACING };
 })();
 
 /* ---- Online geocoding (free OpenStreetMap/Nominatim, throttled, cached) ----
@@ -4843,7 +4884,9 @@ const Geo=(()=>{
       if(!g){ const {city,state}=uniq.get(cityKey);
         onProgress&&onProgress(`Geocoding ${city}${state?", "+state:""}… (${done+1}/${keys.length}, ${ok} found)`, done/keys.length);
         try{ const u=`https://nominatim.openstreetmap.org/search?format=json&limit=1&country=USA&city=${encodeURIComponent(city)}`+(state?`&state=${encodeURIComponent(state)}`:"");
-          const res=await fetch(u); if(res.ok){ const arr=await res.json();
+          const ctl=new AbortController(); const tm=setTimeout(()=>ctl.abort(),15000);
+          const res=await fetch(u,{signal:ctl.signal}).finally(()=>clearTimeout(tm));
+          if(res.ok){ const arr=await res.json();
             if(arr&&arr[0]){ g={lat:+arr[0].lat,lng:+arr[0].lon}; gaz[cityKey]=g; ok++; } } }
         catch(e){}
         await sleep(1100); // ≤1/sec — OpenStreetMap usage policy
@@ -5356,6 +5399,10 @@ const SELF_CHECKS=[
   ["chip: seeded record shows its label", ()=>catChip({fullText:"",category:"person-whistling"}).includes("Person whistling")],
   ["hygiene: numeric entities decode", ()=>decodeEntities("Royaf&#x0027;s")==="Royaf's"],
   ["hygiene: store boundary cleans text", ()=>normalizeRecordText({fullText:"a&#x2014;b"}).fullText==="a—b"],
+  // speed work must never quietly break the rate-limit promise to the LoC
+  ["politeness: text pool stays under 150/min", ()=>CA.TEXT_SPACING>=420 && CA.TEXT_POOL<=6
+      && (60000/CA.TEXT_SPACING)<=150],
+  ["politeness: JSON API stays under 20/min", ()=>CA.JSON_SPACING>=3400],
 ];
 function runSelfChecks(show){
   const results=SELF_CHECKS.map(([name,fn])=>{ let ok=false;
