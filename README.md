@@ -87,9 +87,13 @@ Governing rule: **where a number wasn't measured, nothing is printed.** The repo
 Double-click index.html
 ```
 
-That's the whole procedure. To make it feel like an installed program on Windows, double-click
-**`Install Whistling Archive.bat`** once — it puts a **Whistling Archive** icon on the Desktop that
-opens the tool in its own window (Edge/Chrome app mode; nothing is installed, nothing is copied). For development, any static server avoids `file://` quirks:
+That's the whole procedure. To make it feel like an installed program on Windows: **extract the ZIP
+first**, then double-click **`Install Whistling Archive.bat`** once — it puts a **Whistling Archive**
+icon on the Desktop that opens the tool in its own window (Edge/Chrome app mode; nothing installed,
+nothing copied). Windows shows its standard unsigned-file prompt on the first run only — the installer
+clears the downloaded-file mark from the folder so it never appears again. (Removing even the first
+prompt would require a paid code-signing certificate.) If it's run from inside the ZIP by mistake, it
+explains what to do instead of failing. For development, any static server avoids `file://` quirks:
 
 ```bash
 python -m http.server 8777
