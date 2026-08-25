@@ -479,6 +479,8 @@
 
   /* catalog-style chips / tags (the "scanned record" feel) */
   .cat-chip{ color:#1B140F; font-family:var(--mono); font-size:10px; letter-spacing:.03em; text-transform:uppercase; }
+  /* not a verdict — this record has no text to judge yet */
+  .cat-chip.pending{ color:var(--ink-faint); background:transparent; border:1px dashed var(--line-2); cursor:help; }
   .tag{ font-family:var(--mono); border-color:var(--line-2); color:var(--ink-soft); text-transform:uppercase; letter-spacing:.04em; font-size:10px; }
 
   /* empty states get the waveform ornament */
@@ -794,10 +796,8 @@
           </svg>
           <h1 class="home-title">Whistling Archive Workbench</h1>
           <p class="tagline">A research instrument for the history of whistling &amp; whistling performers in American newspapers.</p>
-          <p class="scope">This workbench turns scattered newspaper clippings into evidence. Import what you’ve already exported,
-            search with word-form expansion, tag the kind of sound each mention describes, and watch large-scale patterns emerge
-            across U.S. cities and decades — the trends individual articles can’t show. Everything runs on your own machine; your
-            data never leaves it.</p>
+          <p class="scope">Turn scattered newspaper clippings into evidence. Search, tag what kind of sound each mention
+            describes, and watch patterns emerge across U.S. cities and decades. Runs entirely on your own machine.</p>
           <div class="hero-cta">
             <button class="btn primary" data-goto="guide">Start here — read the guide</button>
             <button class="btn" data-goto="fetch">Find newspapers</button>
@@ -891,9 +891,8 @@
     <section class="view" id="view-fetch" role="tabpanel" aria-label="Fetch from archive" hidden>
       <div class="panel">
         <h2>Fetch from Chronicling America</h2>
-        <p class="hint">Search the Library of Congress’s public-domain newspaper corpus (U.S., 1836–1922) and import the hits
-          straight into your archive — no files to download by hand. Runs entirely in your browser; nothing is sent anywhere except
-          your searches to the Library of Congress. Pick a <b>preset</b> or type your own terms, then press <b>Build my corpus</b>.</p>
+        <p class="hint">Search the Library of Congress archive (U.S., 1836–1922) — nothing to download by hand.
+          Pick a <b>preset</b> or type your terms, then press <b>Build my corpus</b>.</p>
         <div class="row" style="align-items:flex-end">
           <label class="field" style="flex:2 1 320px"><span>Search terms — one per line (phrases allowed)</span>
             <textarea id="archiveTerms" rows="6" spellcheck="false"></textarea></label>
@@ -915,9 +914,8 @@
           <button class="btn ghost" id="archStop" hidden>Stop</button>
           <span class="muted" id="archStatus" style="font-size:13px; margin-left:auto"></span>
         </div>
-        <p class="pipe-note" style="margin:10px 0 0">One click runs the whole pipeline: <b>search</b> → <b>fetch the article text</b> →
-          <b>sort by sound-type</b> → <b>name the performers</b> (free, no key needed) → <b>place them on the map</b>. Stop any time;
-          re-running picks up where you left off.</p>
+        <p class="pipe-note" style="margin:10px 0 0"><b>Search → text → categories → performers → map</b>, in one run.
+          Stop any time; re-running picks up where it left off.</p>
         <div class="bar" id="archBarWrap" hidden style="margin-top:12px"><i id="archBar"></i></div>
         <div id="archSummary" hidden></div>
         <div id="archLog" class="fetch-log" hidden></div>
@@ -931,9 +929,8 @@
             <label class="muted" style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="archLikely" checked> performer-likely pages only (cheapest)</label>
           </div>
         </details>
-        <p class="faint" style="font-size:12px; margin-top:12px">Public domain via the Library of Congress · polite rate limits are
-          built in (well under LoC’s thresholds) · re-running “Fetch full text” resumes where it left off and skips pages already
-          fetched. Commercial databases (Newspapers.com, GenealogyBank, ProQuest, etc.) are <b>not</b> used — they require paid logins.</p>
+        <p class="faint" style="font-size:12px; margin-top:12px">Public domain via the Library of Congress · rate limits built in ·
+          re-running resumes where it left off. Commercial databases are <b>not</b> used — they need paid logins.</p>
       </div>
     </section>
 
@@ -973,9 +970,8 @@
     <section class="view" id="view-network" role="tabpanel" aria-label="Relationship network" hidden>
       <div class="panel">
         <h2>Relationship network</h2>
-        <p class="hint"><b>Performer connections</b> links two whistlers when they shared a city, newspaper or venue — size = mentions,
-          colour = home city, thicker line = more shared ground. Switch to <b>People &amp; places</b> for the full web. Click a node
-          for its source articles, or a line to see exactly what connects two artists. Drag · scroll to zoom · drag background to pan.</p>
+        <p class="hint">Two whistlers are linked when they shared a city, newspaper or venue. Thicker line = more in common.
+          Click a node or a line to see the articles behind it.</p>
         <div id="netEmpty" class="empty" hidden><div class="big">No connections yet</div><div>Import records with performers, cities or newspapers to weave the web.</div></div>
         <div class="viz-toolbar">
           <label>View <select id="netMode">
@@ -1006,9 +1002,8 @@
           <button class="btn small ghost" id="btnGeocodeStop" hidden>Stop</button>
           <span class="muted" id="mapStat" style="font-size:13px"></span>
         </div>
-        <p class="hint">Dot size = mentions in that city. Curved lines are performer <b>tour routes</b> (cities in date order). Pick a
-          performer to trace one tour, or click a city to see who passed through and where else they appeared. Map outline loads
-          once from the web, then works offline.</p>
+        <p class="hint">Dot size = mentions. Curved lines are <b>tour routes</b> in date order. Pick a performer to trace one tour,
+          or click a city to see who played there.</p>
         <div id="mapEmpty" class="empty" hidden><div class="big">No US places yet</div>
           <div>Records need a city with coordinates before they can be plotted. Fetch some newspapers — <b>Build my corpus</b>
             geocodes them for you — or click <b>Geocode online</b> above for records you already have.</div>
@@ -1112,9 +1107,8 @@
       </div>
       <div class="subview" id="sub-baselines" role="tabpanel">
         <div class="panel">
-          <p class="hint">Does whistling rise in the 1890s, or does <i>everything</i> rise in the 1890s because more pages were
-            digitised? Count control terms across the whole of Chronicling America and compare the shapes. Counts are cached,
-            so you only pay for each term once.</p>
+          <p class="hint">Did whistling rise in the 1890s — or did <i>everything</i>, because more pages were digitised?
+            Compare against control terms. Counts are cached, so each term is only fetched once.</p>
           <div class="cmp-bar">
             <label>Controls <input type="text" id="blTerms" placeholder="banjo, yodeling, cornet" value="banjo, yodeling, cornet" style="max-width:260px"></label>
             <label>From <input type="number" id="blFrom" value="1850" min="1836" max="1963" style="max-width:90px"></label>
@@ -1139,8 +1133,8 @@
               <option value="score">Usefulness</option><option value="mentions">Mentions</option>
               <option value="places">Places</option><option value="name">Name</option></select></label>
         </div>
-        <p class="hint">Auto-generated from the <b>Performer</b> field. “Usefulness” estimates how likely a performer is to lead to further
-          findings (mentions × spread across places, papers &amp; years). Click a card for their tour timeline.</p>
+        <p class="hint">Built from the <b>Performer</b> field. “Usefulness” ranks who is most likely to lead somewhere
+          (mentions × spread). Click a card for their tour.</p>
         <div class="perf-grid" id="perfGrid"></div>
         <div id="perfEmpty" class="empty" hidden><div class="big">No performers yet</div>
           <div>Profiles are built from the <b>Performer</b> field, which Chronicling America pages don't include. Pull names out of the text:</div>
@@ -1162,9 +1156,8 @@
       </div>
       <div class="panel" id="reportControls">
         <h2>Session report</h2>
-        <p class="hint">Compile the records currently in scope into a scholarly write-up — corpus overview, performers, geography,
-          themes, notable mentions, and a Works Cited — ready to print to PDF or drop into a paper. Optionally have the AI draft the
-          prose discussion (uses the engine in Settings; the local model is free).</p>
+        <p class="hint">Turns the records in scope into a write-up — overview, performers, geography, themes and a
+          Works Cited — ready to print or paste into a paper.</p>
         <div class="row" style="align-items:flex-end">
           <label class="field" style="flex:2 1 320px"><span>Title</span>
             <input type="text" id="repTitle" value="Whistling in the American Press: A Research Report" /></label>
@@ -1240,10 +1233,9 @@
         </div>
         <div class="panel callout">
           <h3><span class="badge">Read this</span> Odd-looking text is normal</h3>
-          <p style="color:var(--ink); line-height:1.65; margin:10px 0 0">These papers were scanned from 1800s microfilm,
-            so the computer that read them sometimes misreads a letter. <b>Nothing is broken.</b> The workbench shows you
-            the clearest passage on each page, and the original scan is always one click away.
-            <a href="#" id="guideWhyOcr">Why this happens →</a></p>
+          <p style="color:var(--ink); line-height:1.65; margin:10px 0 0">These papers were scanned from old microfilm, so
+            the computer misreads the odd letter. <b>Nothing is broken</b> — you're shown the clearest passage, and the
+            original scan is one click away. <a href="#" id="guideWhyOcr">Why this happens →</a></p>
         </div>
       </div>
 
@@ -1255,27 +1247,21 @@
         </div>
       <div class="panel">
         <h2>Start here</h2>
-        <p class="hint">This workbench turns scattered newspaper clippings into evidence about the history of whistling.
-          It runs entirely on your own computer — no account, no internet needed once you have your records, and nothing
-          is ever sent anywhere except the searches you choose to run. <b>Your data stays on your machine.</b></p>
+        <p class="hint">Turns scattered newspaper clippings into evidence. Runs on your own computer — no account, no cost.
+          <b>Your data stays on your machine.</b></p>
         <div class="wave-divider"></div>
         <h3 style="margin:6px 0 6px">Four steps, start to finish</h3>
         <ol class="guide-list">
-          <li><b>Build a corpus.</b> Go to <b>Fetch</b>, pick a <b>preset</b> (or type your own terms), and click
-            <b>Build my corpus</b>. That one button searches the Library of Congress, downloads the article text, sorts
-            everything by sound-type, names the performers it can find, and places them all on the map. Nothing to
-            download by hand. It takes a few minutes — you can walk away, and you can press <b>Stop</b> and resume later.</li>
-          <li><b>Weed out the false hits.</b> Not every "whistle" is a person — some are trains, wind, or turns of phrase.
-            <b>Library</b> → <b>Review…</b> shows you one record at a time so you can press <b>Keep</b>, <b>Not about
-            whistling</b>, or <b>Unsure</b> (or just tap <b>K</b>, <b>N</b>, <b>U</b> on the keyboard). One click undoes the lot.</li>
-          <li><b>Explore what you found.</b> <b>Search</b> a word and widen the context slider to read around each hit.
-            Then <b>Map</b> for tour routes, <b>Network</b> for who is connected and why, <b>Trends</b> for change over
-            time, and <b>Performers</b> for individual profiles.</li>
-          <li><b>Write it up.</b> <b>Report</b> compiles everything into a scholarly write-up with a Works Cited —
-            print it, save it as a PDF, or download it for Word. Every record also has a <b>Copy citation</b> button.</li>
+          <li><b>Build a corpus.</b> <b>Fetch</b> → preset → <b>Build my corpus</b>. Searches, downloads text, sorts,
+            names performers and maps them. Stop and resume any time.</li>
+          <li><b>Weed out false hits.</b> Not every “whistle” is a person. <b>Library</b> → <b>Review…</b>:
+            <b>K</b>eep, <b>N</b>ot about whistling, <b>U</b>nsure.</li>
+          <li><b>Explore.</b> <b>Search</b> with the context slider, then <b>Map</b>, <b>Network</b>, <b>Trends</b>
+            and <b>Performers</b>.</li>
+          <li><b>Write it up.</b> <b>Report</b> builds a paper with a Works Cited — print, PDF or Word.</li>
         </ol>
-        <p class="hint" style="margin-top:14px"><b>Before you close the app:</b> click <b>Export JSON</b> in the top bar.
-          That single file is your backup and the way to move your archive to another computer.</p>
+        <p class="hint" style="margin-top:14px"><b>Before you close:</b> click <b>Export JSON</b>. That one file is your
+          backup and how you move the archive to another computer.</p>
         <p class="hint">New here? <a href="#" id="guideReplayTour2">Replay the guided tour</a>.
           Prefer to run the stages separately? They're under <b>Advanced</b> on the Fetch tab.</p>
       </div>
@@ -1283,10 +1269,8 @@
       <div class="panel callout" id="guideOcrSection">
         <h3><span class="badge">Read this</span> Why some of the text looks like gibberish</h3>
         <p style="color:var(--ink); line-height:1.7; margin:10px 0 0">
-          <b>Nothing is broken — this is normal, and it is worth understanding.</b> These newspapers were printed on cheap
-          paper in the 1800s and microfilmed decades ago. A computer then read the film to turn the pictures into
-          searchable words (that step is called <b>OCR</b>). Where the paper was stained, faded or crooked, the computer
-          guesses wrong, so you get stray marks mixed into perfectly good sentences:</p>
+          <b>Nothing is broken — this is normal.</b> These papers were microfilmed decades ago, then read by a computer
+          (<b>OCR</b>). Where the paper was stained or faded it guesses wrong:</p>
         <div class="ocr-demo">
           <div><span class="lbl">What the scanner produced</span>
             <span class="raw">1 i 1 1 r-1 lf:it I ti.r N-'-TT-M WW Powders Leiads? 106 WALL ST., NEW-YORK. TWENTY WHISTLING GIRLS. They Warble In San Francisco …</span></div>
@@ -1294,14 +1278,10 @@
             <span class="good">… TWENTY <mark>WHISTLING GIRLS</mark>. They Warble In San Francisco, and Each Possesses a Rosebud Mouth …</span></div>
         </div>
         <ul class="guide-list" style="margin-top:12px">
-          <li><b>It picks the clearest passage.</b> Each page is scanned for every mention of your search words, and the
-            most readable one is shown — so you see the sentence, not the speckle.</li>
-          <li><b>If a whole page is too damaged</b> to read, it says <i>"Scan too unclear to preview"</i> rather than
-            printing nonsense at you.</li>
-          <li><b>The original is always one click away.</b> Open any record and use <b>view original page ↗</b> to see the
-            real scanned newspaper at the Library of Congress — that is the authority, not the computer's transcription.</li>
-          <li><b>Nothing is deleted.</b> The full transcription is kept exactly as received, so searching and your
-            citations stay faithful to the source. Only the little preview is tidied.</li>
+          <li><b>It picks the clearest passage</b> on each page — so you see the sentence, not the speckle.</li>
+          <li><b>If a page is too damaged</b>, it says <i>“Scan too unclear to preview”</i> instead of printing nonsense.</li>
+          <li><b>The original is one click away.</b> Open a record → <b>view original page ↗</b> for the real scan.</li>
+          <li><b>Nothing is deleted.</b> The full text is kept as received; only the little preview is tidied.</li>
         </ul>
         <p class="hint" style="margin:12px 0 0">In short: <b>messy preview text is a property of 120-year-old newsprint,
           not a bug.</b> If a record matters to your argument, open the original page and read it there.</p>
@@ -1324,56 +1304,42 @@
           <li><b>Build it once:</b> Fetch → pick a preset → <b>Build my corpus</b> (search, text, categories, performers and map places in one run).</li>
           <li><b>Clean it:</b> Library → <b>Review…</b> to drop the false hits before students ever see them.</li>
           <li><b>Save collections</b> (Library → “Save view as collection”) to give each assignment its own focused subset.</li>
-          <li><b>Share one file:</b> Settings → <b>Save as class dataset…</b> — give it a title and a one-line description, and send students
-            that file plus this <code class="kbd">index.html</code>. They click <b>Open a class dataset</b> on the Home tab and see your title
-            confirmed on import. (Plain <b>Export JSON</b> works too; the class dataset just labels itself.)</li>
-          <li><b>Lock down a shared machine:</b> Settings → Teaching → <b>Classroom / presentation mode</b> hides “Clear all”, per-record
-            delete and dataset import, so a demo or lab computer can't be wiped by accident.</li>
-          <li><b>Works in a lab, offline:</b> once a dataset is prepared and shared, no internet or AI key is needed — the map outline is cached and the text is already in the file. (Fetching <i>new</i> newspapers needs internet.)</li>
-          <li><b>No cost for students:</b> the free local model and the heuristic extractor need no API key; AI is only ever an optional upgrade.</li>
+          <li><b>Share one file:</b> Settings → <b>Save as class dataset…</b>, then send that file plus
+            <code class="kbd">index.html</code>. Students open it from the Home tab.</li>
+          <li><b>Lock a shared machine:</b> Settings → Teaching → <b>Classroom mode</b> hides Clear all, delete and import.</li>
+          <li><b>Works offline in a lab.</b> No internet or AI key needed once the dataset is shared.</li>
+          <li><b>Free for students.</b> No API key, ever. AI is an optional upgrade.</li>
         </ol>
-        <p class="faint" style="font-size:12px">Tip: keep a master JSON backup. Students can’t harm your copy — they work on their own imported file, and most actions have Undo.</p>
+        <p class="faint" style="font-size:12px">Keep a master JSON backup. Students work on their own copy, so yours is safe.</p>
       </div>
 
       <div class="panel">
         <h3>For scholars — the method apparatus</h3>
-        <p class="hint">Reviewers rarely argue with a chart; they argue with the method behind it. These five features
-          exist to answer the five questions a referee will ask, before the referee asks them.</p>
+        <p class="hint">Reviewers argue with method, not charts. These five features answer the five questions a referee asks.</p>
         <dl class="glossary">
           <dt>Corpus manifest &amp; freeze <span class="faint">— “Where did this data come from?”</span></dt>
-          <dd>Settings → <b>Freeze corpus version</b> records exactly what the corpus held on a given day: counts,
-            coverage, and every search run that built it. A figure in a paper can then be traced to a fixed snapshot
-            rather than to a moving dataset. <b>Export citable bundle</b> writes the data, the manifest and a README
-            with a ready-made dataset citation and Zenodo deposit steps for a DOI.</dd>
+          <dd><b>Freeze corpus version</b> records what the corpus held on a given day, so a figure traces to a fixed
+            snapshot. <b>Export citable bundle</b> adds a citation and Zenodo steps for a DOI.</dd>
           <dt>Reproduce from manifest <span class="faint">— “Could anyone else get your results?”</span></dt>
-          <dd>Hand another scholar the manifest; <b>Reproduce from manifest</b> loads your exact search terms and year
-            bounds into their Fetch tab. Chronicling America is public, so the query genuinely re-runs. Very few
-            musicological claims invite replication — this one does.</dd>
+          <dd>Hand someone the manifest and <b>Reproduce from manifest</b> loads your exact query into their Fetch tab.
+            The archive is public, so it genuinely re-runs.</dd>
           <dt>Accuracy audit <span class="faint">— “How wrong is it?”</span></dt>
-          <dd>Library → <b>Audit…</b> draws a uniform random sample and walks you through it, asking whether each record
-            is really about whistling and whether its category is right. It reports precision and category accuracy and
-            writes the methods sentence for you. Corrections you make are saved, so the audit improves the corpus while
-            measuring it. Answers marked <i>unsure</i> are excluded from the percentages rather than guessed.</dd>
+          <dd>Library → <b>Audit…</b> walks a random sample, asking if each record is really about whistling and if its
+            category is right. Reports both percentages and writes the methods sentence for you.</dd>
           <dt>Inter-coder reliability <span class="faint">— “Is the coding scheme reproducible?”</span></dt>
-          <dd><b>Export audit packet</b> creates a blind packet (categories stripped); two coders each <b>Code a packet</b>
-            and return their file; <b>Compare two codings</b> reports raw agreement and Cohen's κ with the conventional
-            band. κ discounts agreement that chance alone would produce — and it depends on how common each category is,
-            so both numbers are reported together.</dd>
+          <dd><b>Export audit packet</b> makes a blind packet; two people <b>Code a packet</b> separately;
+            <b>Compare two codings</b> reports agreement and Cohen's κ. κ discounts lucky guesses, so both are shown.</dd>
           <dt>Baselines <span class="faint">— “Didn't everything rise in the 1890s?”</span></dt>
-          <dd>The strongest objection to any counted trend. The <b>Baselines</b> lens in Trends counts control terms
-            across the same archive, so you compare the <i>shape</i> of whistling's curve against banjo, yodeling or
-            cornet rather than reading a raw rise that only reflects how many pages have been digitised.</dd>
+          <dd>Counts control terms over the same archive, so you compare the <i>shape</i> of whistling's curve against
+            banjo or cornet — not a rise that just reflects more digitised pages.</dd>
         </dl>
-        <p class="hint" style="margin-top:12px">The Report assembles all of this automatically — provenance split,
-          coverage by state and decade, whichever audit numbers exist, and a standing limitations paragraph. Where a
-          measurement has not been made, nothing is printed: the apparatus never claims rigour it does not have.
-          See <code class="kbd">STRATEGY.md</code> for the wider argument about placing this work in the field.</p>
+        <p class="hint" style="margin-top:12px">The Report assembles all of this automatically. Where a measurement
+          hasn't been made, nothing is printed — it never claims rigour it doesn't have.</p>
       </div>
 
       <div class="panel">
         <h3>Assignment sheets (ready to hand out)</h3>
-        <p class="hint">Three graded exercises that work on any prepared class dataset — including the sample tour data in
-          <code class="kbd">samples/SAMPLE_us_whistler_tours.csv</code>. Students need nothing but the file and this page.</p>
+        <p class="hint">Graded exercises that work on any class dataset. Students need only the file and this page.</p>
 
         <h4 style="margin:14px 0 4px; font-size:14px; color:var(--copper)">1 · Trace a tour (Map)</h4>
         <ol class="guide-list">
@@ -1410,8 +1376,8 @@
             record. Neither of you can see the computer's category, or each other's.</li>
           <li>Export your coding and give both files to your instructor (or to one partner), then run
             <b>Compare two codings…</b>.</li>
-          <li>Note the raw agreement and Cohen's κ. κ discounts the agreement you would reach by guessing — so it is
-            usually lower than the raw figure, and that gap is informative, not an error.</li>
+          <li>Note the raw agreement and Cohen's κ. κ discounts lucky guesses, so it's usually lower — that gap is
+            informative, not an error.</li>
           <li>Look at the records you disagreed on and decide, together, what the right answer is and why the boundary
             was unclear.</li>
           <li><b>Submit:</b> your κ, and one page on <i>two</i> specific disagreements — what makes each case genuinely
@@ -1455,8 +1421,8 @@
     <section class="view" id="view-settings" role="tabpanel" aria-label="Settings" hidden>
       <div class="panel">
         <h2>AI engine (optional)</h2>
-        <p class="hint">Powers the Assistant chat and the “Enrich with AI” step. Every other feature works without it.
-          Choose a <b>free local model</b> (runs on this computer, no key, no cost) or the <b>Anthropic API</b> (highest quality, needs a paid key).</p>
+        <p class="hint">Optional — everything else works without it. Choose a <b>free local model</b> (no key, no cost)
+          or the <b>Anthropic API</b> (best quality, paid key).</p>
         <label class="field" style="max-width:440px"><span>Engine</span>
           <select id="aiEngine">
             <option value="local">Local model — free, runs in your browser (no key)</option>
@@ -1469,8 +1435,8 @@
               <option value="Llama-3.2-3B-Instruct-q4f16_1-MLC">Llama 3.2 · 3B — alternative (~2 GB)</option>
               <option value="Llama-3.2-1B-Instruct-q4f16_1-MLC">Llama 3.2 · 1B — fastest, lowest quality (~0.9 GB)</option>
             </select></label>
-          <p class="hint">Runs entirely in your browser via WebGPU. First use downloads the model once, then it’s cached and works offline,
-            free, on every future search. Needs a recent Chrome/Edge on a reasonably modern laptop. <b id="localGpu"></b></p>
+          <p class="hint">Runs in your browser. Downloads once (~2 GB), then works offline and free forever.
+            Needs a recent Chrome or Edge. <b id="localGpu"></b></p>
         </div>
         <div id="cloudBox" hidden>
           <label class="field"><span>Anthropic API key</span><input type="password" id="apiKey" placeholder="sk-ant-…" autocomplete="off" /></label>
@@ -1488,7 +1454,7 @@
       </div>
       <div class="panel">
         <h2>Sound-type category rules</h2>
-        <p class="hint">Format <span class="kbd">category: word, word, …</span> per line. Nearby words drive auto-suggestion; you can always override per record.</p>
+        <p class="hint">Format <span class="kbd">category: word, word, …</span> per line. You can always override per record.</p>
         <textarea id="catRules" spellcheck="false" rows="9"></textarea>
         <div style="margin-top:10px; display:flex; gap:8px"><button class="btn" id="btnSaveCatRules">Save category rules</button>
           <button class="btn ghost" id="btnResetCatRules">Reset</button>
@@ -1503,36 +1469,34 @@
       </div>
       <div class="panel">
         <h2>Gazetteer (offline geocoding)</h2>
-        <p class="hint">Format <span class="kbd">city = lat, lng</span> per line. Used to place records on the map without an internet geocoder.</p>
+        <p class="hint">Format <span class="kbd">city = lat, lng</span> per line. Places records on the map without internet.</p>
         <textarea id="gazetteer" spellcheck="false" rows="6"></textarea>
         <div style="margin-top:10px"><button class="btn" id="btnSaveGaz">Save gazetteer</button></div>
       </div>
       <div class="panel">
         <h2>Collections</h2>
-        <p class="hint">Saved subsets of your archive. Switch the active scope in the top bar to focus every view on one collection.</p>
+        <p class="hint">Saved subsets. Switch scope in the top bar to focus every view on one collection.</p>
         <div id="collectionList"></div>
       </div>
       <div class="panel">
         <h2>Teaching</h2>
-        <p class="hint">Options for using the workbench with a class.</p>
+        <p class="hint">For using the workbench with a class.</p>
         <label class="field" style="max-width:520px"><span>Classroom / presentation mode</span>
           <select id="presentMode">
             <option value="off">Off — all controls available</option>
             <option value="on">On — hide “Clear all”, record delete &amp; dataset import</option>
           </select></label>
-        <p class="hint" style="margin-top:-6px">Useful for lecture demos and shared lab machines: the destructive buttons are hidden so
-          nothing is wiped by accident. Everything else keeps working.</p>
+        <p class="hint" style="margin-top:-6px">For demos and shared lab machines — nothing can be wiped by accident.</p>
         <div class="row">
           <button class="btn" id="btnClassExport">Save as class dataset…</button>
           <button class="btn" id="btnFindings">Export my findings (Markdown)</button>
         </div>
-        <p class="hint" style="margin-top:10px">“Class dataset” is a normal JSON export with a title and description attached, so students
-          see what they opened. “My findings” collects every record you wrote a note on, with its citation.</p>
+        <p class="hint" style="margin-top:10px"><b>Class dataset</b> = a JSON export with a title attached.
+          <b>My findings</b> = every record you noted, with citations.</p>
       </div>
       <div class="panel">
         <h2>Corpus &amp; method</h2>
-        <p class="hint">The scholarly record behind your data — where it came from, how accurate it is, and how anyone
-          else could rebuild it. Reviewers ask these questions; this answers them in advance.</p>
+        <p class="hint">Where your data came from, how accurate it is, and how anyone could rebuild it.</p>
         <div class="row">
           <button class="btn" id="btnFreeze">Freeze corpus version…</button>
           <button class="btn" id="btnBundle">Export citable bundle</button>
@@ -1541,8 +1505,7 @@
         <div id="manifestList" style="margin-top:14px"></div>
         <div class="wave-divider" style="margin:16px 0 12px"></div>
         <h3 style="font-size:15px;margin-bottom:4px">Calibration</h3>
-        <p class="hint">Hand-check a random sample to measure how accurate the corpus actually is — the one paragraph
-          that turns a dataset into an instrument.</p>
+        <p class="hint">Hand-check a random sample to measure how accurate the corpus really is.</p>
         <div class="row">
           <button class="btn" id="btnAudit2">Run an accuracy audit…</button>
           <button class="btn ghost" id="btnPacketExport">Export audit packet…</button>
@@ -1553,7 +1516,7 @@
       </div>
       <div class="panel">
         <h2>Data</h2>
-        <p class="hint">Your dataset lives on this machine. Export JSON regularly — it is the canonical copy. Auto-save: <b id="persistStatus">checking…</b></p>
+        <p class="hint">Export JSON regularly — it's your real backup. Auto-save: <b id="persistStatus">checking…</b></p>
         <p class="hint" id="corpusVersionLine" hidden></p>
         <div class="row">
           <button class="btn" id="btnExportJson2">Export dataset → JSON</button>
@@ -1562,8 +1525,11 @@
         </div>
       </div>
       <div class="panel"><h2>About</h2>
-        <p class="hint">Whistling Archive Workbench — a client-side research tool for the history of whistling in historical newspapers.
-          See <span class="kbd">SPEC.md</span>. No data leaves this device except calls you explicitly make to the AI assistant.</p></div>
+        <p class="hint">A research tool for the history of whistling in newspapers. No data leaves this device except
+          AI calls you make yourself.</p>
+        <div class="row" style="margin-top:4px"><button class="btn small ghost" id="btnSelfCheck"
+          title="Verify the classification fundamentals still hold">Run self-checks</button></div>
+        <div id="selfCheckOut" style="margin-top:10px"></div></div>
     </section>
   </main>
   <aside class="side-rail" id="sideRail" aria-label="At a glance"></aside>
@@ -1885,6 +1851,14 @@ const CATEGORY_META={
   "unsure":{label:"Unsure",color:"#B9AE97"},
 };
 const catLabel=(c)=>(CATEGORY_META[c]||CATEGORY_META.unsure).label;
+// "Unsure" means a judgement was made and was inconclusive. A record with no OCR
+// text has never been judged at all — say that instead of implying a verdict.
+const needsText=(r)=>!r.fullText && (r.category||"unsure")==="unsure" && !r.categoryUserSet;
+function catChip(r){
+  return needsText(r)
+    ? `<span class="cat-chip pending" title="No article text yet — run Fetch → Fetch full text, then Classify">No text yet</span>`
+    : `<span class="cat-chip" style="background:${catColor(r.category)}">${esc(catLabel(r.category))}</span>`;
+}
 const catColor=(c)=>(CATEGORY_META[c]||CATEGORY_META.unsure).color;
 
 /* ----------------------------- [ADAPTERS] ---------------------------
@@ -1894,7 +1868,7 @@ const catColor=(c)=>(CATEGORY_META[c]||CATEGORY_META.unsure).color;
 function blankRecord(){ return { id:newId(), sourceFile:"", fullText:"", date:"", year:null, city:"", state:"",
   newspaper:"", performer:"", composer:"", ensemble:"", venue:"", audience:"", genre:"", sponsorship:"",
   mentions:0, category:"unsure", categoryUserSet:false, notes:"", lat:null, lng:null,
-  sourceUrl:"", provenance:"", altoUrl:"", epithet:"" }; }
+  sourceUrl:"", provenance:"", altoUrl:"", epithet:"", matchedTerm:"" }; }
 function parseYear(s){ const m=String(s||"").match(/\b(1[5-9]\d{2}|20\d{2})\b/); return m?Number(m[1]):null; }
 
 // RFC-4180-ish delimited parser (quotes, embedded delimiters/newlines).
@@ -2080,6 +2054,21 @@ async function importFiles(files, onProgress, csvMappings){
 }
 
 /* ---------------------------- [CATEGORIES] -------------------------- */
+// Some search terms can only describe a person whistling — a page that matched
+// "siffleuse" needs no OCR text to be categorised. Ambiguous terms ("whistling"
+// could be a train) are deliberately left alone until the text arrives.
+const TERM_CATEGORY={
+  "siffleur":"person-whistling", "siffleurs":"person-whistling",
+  "siffleuse":"person-whistling", "siffleuses":"person-whistling",
+  "whistler":"person-whistling", "whistlers":"person-whistling",
+  "lady whistler":"person-whistling", "whistling girl":"person-whistling",
+  "whistling girls":"person-whistling", "king of whistlers":"person-whistling",
+  "queen of whistlers":"person-whistling", "whistling soloist":"music-performance",
+  "artistic whistling":"music-performance", "whistling recital":"music-performance",
+  "school of whistling":"music-performance", "whistling solo":"music-performance",
+};
+const categoryFromTerm=(t)=>TERM_CATEGORY[String(t||"").trim().toLowerCase()]||null;
+
 function suggestCategory(rec){
   const text=" "+(rec.fullText||"").toLowerCase()+" ";
   let best=null, bestN=0;
@@ -2709,7 +2698,7 @@ function renderLibrary(){
   $("#libBody").innerHTML=view.map(r=>`<tr data-id="${r.id}">
     <td class="rec-meta">${esc(r.date||(r.year??"—"))}</td>
     <td>${esc(r.newspaper||"—")}</td><td>${esc(r.city||"—")}</td><td>${esc(r.performer||"—")}</td>
-    <td><span class="cat-chip" style="background:${catColor(r.category)}">${esc(catLabel(r.category))}</span></td>
+    <td>${catChip(r)}</td>
     <td class="rec-text">${libraryExcerpt(r)}</td>
     <td><button class="btn small ghost del" data-id="${r.id}" title="Remove">✕</button></td></tr>`).join("");
   $("#libCount").textContent = shown.length>CAP ? `Showing first ${CAP} of ${shown.length} — filter to narrow.`
@@ -3177,7 +3166,7 @@ function renderResults(){
   for(const {rec,tokens,hits} of results){
     const src=[ rec.date||rec.year?`<b>${esc(rec.date||rec.year)}</b>`:"", rec.newspaper?esc(rec.newspaper):"",
       rec.city?esc(rec.city):"", rec.performer?"perf. "+esc(rec.performer):"",
-      `<span class="cat-chip" style="background:${catColor(rec.category)}">${esc(catLabel(rec.category))}</span>`,
+      catChip(rec),
       `<span class="lnk" data-edit="${rec.id}">open ↗</span>` ].filter(Boolean).join("");
     for(const hit of hits) blocks.push(`<div class="hit"><div class="src">${src}</div>
       <div class="snippet">${buildSnippet(tokens,hit,ctxWords)}</div></div>`);
@@ -4753,7 +4742,10 @@ const CA = (()=>{
   function cleanTitle(t){ return (t||"").replace(/^Image\s+\d+\s+of\s+/i,"").replace(/,\s*[A-Za-z]+\.?\s+\d{1,2},\s*\d{4}\s*$/,"").trim(); }
   const pick=(v)=>Array.isArray(v)?v[0]:v;
   const tcw=(s)=>(s||"").toString().replace(/\b\w/g,c=>c.toUpperCase());
-  function recFromResult(res){ const r=blankRecord();
+  function recFromResult(res, term){ const r=blankRecord();
+    r.matchedTerm=term||"";
+    const seed=categoryFromTerm(term);      // classifiable before any OCR text arrives
+    if(seed) r.category=seed;
     r.provenance="chronicling-america"; r.sourceFile="Chronicling America";
     r.sourceUrl=(res.url||res.id||"").replace(/^http:/,"https:");
     r.newspaper=cleanTitle(res.title)||(res.partof_title?tcw(pick(res.partof_title)):"")||"";
@@ -4776,7 +4768,7 @@ const CA = (()=>{
         let data; try{ data=await getJSON(url); }catch(e){ onProgress&&onProgress(`⚠ ${term}: ${e.message}`); break; }
         const results=data.results||[];
         for(const res of results){ const key=res.url||res.id; if(!key||seen.has(key)) continue;
-          seen.add(key); created.push(recFromResult(res)); if(created.length>=max) break; }
+          seen.add(key); created.push(recFromResult(res, term)); if(created.length>=max) break; }
         const next=data.pagination&&data.pagination.next;
         if(!next||!results.length||created.length>=max) break;
         sp++; await sleep(3500); // ≤ ~17/min, safely under LoC's 20/min JSON limit
@@ -4831,7 +4823,7 @@ const CA = (()=>{
   }
   function stop(){ cancel=true; }
   function pendingCount(){ return Store.all().filter(r=>r.provenance==="chronicling-america" && !r.fullText && (r.altoUrl||r.sourceUrl)).length; }
-  return { search, fetchText, stop, pendingCount };
+  return { search, fetchText, stop, pendingCount, recFromResult };
 })();
 
 /* ---- Online geocoding (free OpenStreetMap/Nominatim, throttled, cached) ----
@@ -5337,6 +5329,47 @@ ${d.refs.length?`<h2>Works Cited</h2>${man?`<p class="cite"><i>Corpus cited as:<
   return { data, html, md, aiDiscussion };
 })();
 
+/* ---------------------------- [SELF-CHECK] --------------------------
+   Classification is a load-bearing feature: records seed a category from the
+   search term that found them, "No text yet" is distinct from a real Unsure
+   verdict, and harvested text is entity-clean. These checks pin all of that.
+   They run against the REAL functions (no copies), touch nothing persistent,
+   and auto-run on localhost so a regression fails loudly during development.
+   If you change the classifier, TERM_CATEGORY, catChip or normalizeRecordText,
+   keep this list green and extend it — do not delete cases to make it pass.
+-------------------------------------------------------------------------- */
+const SELF_CHECKS=[
+  ["classifier: person text", ()=>suggestCategory({fullText:"He whistled a merry tune through pursed lips."})==="person-whistling"],
+  ["classifier: performance text", ()=>suggestCategory({fullText:"A grand concert at the opera hall drew a large audience."})==="music-performance"],
+  ["classifier: train text", ()=>suggestCategory({fullText:"The locomotive engine hissed steam along the railway."})==="train-machine"],
+  ["classifier: empty text gives no verdict", ()=>suggestCategory({fullText:""})===null && suggestCategory({})===null],
+  ["terms: siffleuse can only be a person", ()=>categoryFromTerm("siffleuse")==="person-whistling"],
+  ["terms: case & spaces tolerated", ()=>categoryFromTerm("  Lady Whistler ")==="person-whistling"],
+  ["terms: recital seeds performance", ()=>categoryFromTerm("whistling recital")==="music-performance"],
+  ["terms: ambiguous is never guessed", ()=>categoryFromTerm("whistling")===null && categoryFromTerm("")===null && categoryFromTerm(null)===null],
+  ["record model: matchedTerm field exists", ()=>"matchedTerm" in blankRecord()],
+  ["harvest: siffleuse hit is pre-classified", ()=>{ const r=CA.recFromResult({url:"https://x",title:"T",date:"1900"},"siffleuse");
+      return r.category==="person-whistling" && r.matchedTerm==="siffleuse"; }],
+  ["harvest: ambiguous hit stays unsure", ()=>CA.recFromResult({url:"https://y"},"whistling").category==="unsure"],
+  ["chip: no text reads 'No text yet'", ()=>catChip({fullText:"",category:"unsure"}).includes("No text yet")],
+  ["chip: a user's verdict is respected", ()=>!catChip({fullText:"",category:"unsure",categoryUserSet:true}).includes("No text yet")],
+  ["chip: seeded record shows its label", ()=>catChip({fullText:"",category:"person-whistling"}).includes("Person whistling")],
+  ["hygiene: numeric entities decode", ()=>decodeEntities("Royaf&#x0027;s")==="Royaf's"],
+  ["hygiene: store boundary cleans text", ()=>normalizeRecordText({fullText:"a&#x2014;b"}).fullText==="a—b"],
+];
+function runSelfChecks(show){
+  const results=SELF_CHECKS.map(([name,fn])=>{ let ok=false;
+    try{ ok=!!fn(); }catch(_){ ok=false; }
+    return {name, ok}; });
+  const fail=results.filter(r=>!r.ok);
+  const out=$("#selfCheckOut");
+  if(show&&out){ out.innerHTML=`<table class="mini"><tbody>`+results.map(r=>
+      `<tr><td>${r.ok?"✓":"✗"}</td><td class="${r.ok?"muted":""}">${esc(r.name)}</td></tr>`).join("")+`</tbody></table>`;
+    toast(fail.length?`${fail.length} of ${results.length} self-checks FAILED.`:`All ${results.length} self-checks passed.`, fail.length?"err":"ok"); }
+  if(fail.length) console.error("SELF-CHECK FAILURES:", fail.map(f=>f.name));
+  return { pass:results.length-fail.length, fail:fail.length, results };
+}
+
 /* ----------------------------- [WIRE-UP] ---------------------------- */
 function wireEvents(){
   $$('nav.tabs button').forEach(b=>b.onclick=()=>showView(b.dataset.view));
@@ -5418,11 +5451,22 @@ function wireEvents(){
   $("#btnExportCsvAll").onclick=()=>{ if(!Store.count()) return toast("Nothing to export yet.");
     download(`whistling-library-${stamp()}.csv`,recordsToCsv(activeRecords()),"text/csv"); toast("Exported to CSV.","ok"); };
   $("#btnClassify").onclick=()=>{ if(!Store.count()) return toast("No records yet.");
-    let n=0, noText=0;
-    Store.all().forEach(r=>{ if(r.categoryUserSet) return; if(!r.fullText){ noText++; return; }
+    let n=0, noText=0, seeded=0;
+    Store.all().forEach(r=>{
+      if(r.categoryUserSet) return;
+      if(!r.fullText){
+        // no OCR text, but the term that found it may already settle the category
+        const seed=categoryFromTerm(r.matchedTerm);
+        if(seed && seed!==r.category){ r.category=seed; seeded++; }
+        else if((r.category||"unsure")==="unsure") noText++;   // genuinely blocked, not just already done
+        return;
+      }
       const s=suggestCategory(r); if(s && s!==r.category){ r.category=s; n++; } });
-    if(n){ persist(); Store.notify(); }
-    toast(`Classified ${n} record(s).`+(noText?` ${noText} have no text yet — run Fetch → “2 · Fetch full text”.`:""), n?"ok":""); };
+    if(n+seeded){ persist(); Store.notify(); }
+    const done=n+seeded;
+    if(noText) toast((done?`Classified ${done}. `:"")+`${noText} record(s) have no article text yet — that is why they show “No text yet”.`,
+      done?"ok":"", {ms:9000, action:{label:"Fetch text", fn:()=>showView("fetch")}});
+    else toast(done?`Classified ${done} record(s).`:"Everything is already classified.", done?"ok":""); };
   $("#btnReview").onclick=()=>Review.open();
   $("#btnSaveCollection").onclick=()=>{ const recs=visibleLibraryRecords(); if(!recs.length) return toast("Nothing to save.");
     const name=prompt(`Name this collection (${recs.length} records):`); if(name) saveCollection(name.trim(),recs.map(r=>r.id)); };
@@ -5514,6 +5558,7 @@ function wireEvents(){
   const imp=()=>$("#jsonInput").click(); $("#btnImportJson").onclick=imp; $("#btnImportJson2").onclick=imp;
   $("#jsonInput").onchange=async e=>{ const f=e.target.files[0]; e.target.value=""; if(!f) return;
     try{ importJsonData(JSON.parse(await f.text())); }catch(err){ toast("Import failed: "+err.message,"err"); } };
+  if($("#btnSelfCheck")) $("#btnSelfCheck").onclick=()=>runSelfChecks(true);
   // scholarly apparatus: freeze/cite/reproduce, audits, reliability
   $("#btnAudit").onclick=()=>Audit.start();
   $("#btnAudit2").onclick=()=>Audit.start();
@@ -5580,6 +5625,9 @@ async function boot(){
   Sound.init(); renderFact(); renderPresets(); updateDashboard();
   if(!Persist.available) toast("Local auto-save is unavailable in this browser. Export JSON to keep your work.","err",{ms:8000});
   if(!Settings.get("tourSeen")) setTimeout(startTour,700);   // first run only; replayable from the Guide
+  // dev tripwire: on the preview server a broken fundamental fails loudly
+  if(location.hostname==="localhost") setTimeout(()=>{ const r=runSelfChecks(false);
+    if(r.fail) toast(`⚠ ${r.fail} self-check(s) failing — see console.`,"err",{ms:12000}); },400);
 }
 boot();
 </script>

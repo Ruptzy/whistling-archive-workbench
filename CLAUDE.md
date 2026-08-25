@@ -27,6 +27,13 @@ import, search, annotate, and visualize historical newspaper mentions of whistli
   libs vendored locally (AD-004): Tesseract.js (OCR), PDF.js (PDF text), a chart lib, map/SVG.
 - **Single source of state:** one record store module. All views/visualizations *read from it*;
   mutations go through the store so persistence + undo are centralized.
+- **Classification is load-bearing — keep the self-checks green.** `SELF_CHECKS`/`runSelfChecks()`
+  (Settings → About → "Run self-checks"; auto-runs on localhost) pin the fundamentals: records seed a
+  category from the search term that found them (`TERM_CATEGORY`/`categoryFromTerm`, ambiguous terms
+  like "whistling" are NEVER guessed), no-text records show "No text yet" instead of a fake Unsure
+  verdict (`needsText`/`catChip`), and `matchedTerm` survives `CA.recFromResult`. If you touch the
+  classifier, chips, term map or text hygiene: run the checks, keep them green, and EXTEND the list —
+  never delete cases to make it pass.
 - **Text hygiene is enforced at the store, not per-adapter.** `normalizeRecordText()` runs inside
   `Store.add/update/replaceAll`, so harvested text can never keep raw character references
   (`&#x0027;` etc. — they corrupt display *and* search). New adapters get this for free; if you ever

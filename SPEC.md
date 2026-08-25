@@ -268,6 +268,30 @@ and register it; no importer rewrite.
 
 Enum: `person-whistling`, `wind-weather`, `train-machine`, `bird-animal`,
 `music-performance`, `object-sound`, `motion-violence`, `not-about-sound`, `unsure`.
+
+**Why records used to pile up in `unsure` (fixed 2026-08-20).** `suggestCategory()` reads
+`fullText`, so it returns `null` for any record whose OCR text has not arrived — and the record
+then displayed as **Unsure**, which reads as *"the classifier judged this and gave up"* when in
+fact nothing had been judged at all. After a search run whose *Fetch full text* step was
+interrupted (the Library of Congress rate-limits long runs), an entire library could show
+`UNSURE` end to end. Two changes:
+- **Seed from the search term.** `TERM_CATEGORY` maps *unambiguous* terms to a category —
+  `siffleur`/`siffleuse`/`lady whistler`/`king of whistlers` can only describe a person;
+  `artistic whistling`/`whistling recital` are performance. `CA.search` records the term that
+  matched (`record.matchedTerm`) and seeds the category at creation, so those records are
+  classified **before any OCR text exists**. Ambiguous terms — `whistling` alone could be a
+  train — are deliberately left unclassified rather than guessed.
+- **Stop claiming a verdict that was never reached.** A record with no text now shows a dashed
+  **"No text yet"** chip instead of "Unsure" (`needsText()` / `catChip()`); the stored value is
+  still `unsure`, so no data model change. *Unsure* is reserved for records that were actually
+  examined. **Classify** reports how many records are blocked on missing text and offers a
+  button to go and fetch it.
+
+`matchedTerm` is a new optional record field; absent on older data, which is handled, so no
+`schemaVersion` bump was needed. **Regression guard (2026-08-25):** 16 in-app self-checks
+(`runSelfChecks()`, Settings → About; auto-run on localhost) pin these fundamentals against the real
+functions — classifier verdicts, term seeding via `CA.recFromResult`, the never-guess rule for
+ambiguous terms, chip states, and entity hygiene at the store boundary.
 Rule-based **auto-suggestion** from nearby words, **one-click manual override**, rules the
 user can view/edit. Override always wins and is marked as user-set.
 
