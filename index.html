@@ -1592,6 +1592,7 @@
         </div>
       </div>
       <div class="panel"><h2>About</h2>
+        <p class="hint" id="aboutBuild" style="font-family:var(--mono); font-size:11px"></p>
         <p class="hint">A research tool for the history of whistling in newspapers. No data leaves this device except
           AI calls you make yourself.</p>
         <div class="row" style="margin-top:4px"><button class="btn small ghost" id="btnSelfCheck"
@@ -2915,6 +2916,11 @@ let _pipeCancel=false;
 // Re-run the rule-based classifier over records the user hasn't set by hand.
 /* The category a record SHOULD carry under the CURRENT engine: the text verdict,
    else the search term's seed, else unsure. */
+/* Bump on every release. Updating this app means replacing index.html in the
+   folder already in use (the browser keys the record store to that exact path),
+   so there is no install step to reveal which copy is actually running — this
+   stamp is how the user tells. Shown in Settings > About. */
+const APP_BUILD="2026-08-25 · classifier AD-017 · re-classify AD-018";
 function categoryFor(r){
   return (r.fullText?suggestCategory(r):null) || categoryFromTerm(r.matchedTerm) || "unsure";
 }
@@ -6328,6 +6334,7 @@ function wireEvents(){
   const imp=()=>$("#jsonInput").click(); $("#btnImportJson").onclick=imp; $("#btnImportJson2").onclick=imp;
   $("#jsonInput").onchange=async e=>{ const f=e.target.files[0]; e.target.value=""; if(!f) return;
     try{ importJsonData(JSON.parse(await f.text())); }catch(err){ toast("Import failed: "+err.message,"err"); } };
+  if($("#aboutBuild")) $("#aboutBuild").textContent="Build "+APP_BUILD;
   if($("#btnSelfCheck")) $("#btnSelfCheck").onclick=()=>runSelfChecks(true);
   if($("#btnClassifierEval")) $("#btnClassifierEval").onclick=()=>runClassifierEval(true);
   // scholarly apparatus: freeze/cite/reproduce, audits, reliability
