@@ -663,7 +663,11 @@
   .pull b{ font-family:var(--serif); font-size:14.5px; }
   .pull .p-meta{ font-family:var(--mono); font-size:10.5px; color:var(--ink-faint); }
   .pull .p-why{ font-size:12px; color:var(--ink-soft); line-height:1.45; }
-  .pull-note{ font-size:12px; color:var(--ink-faint); margin:10px 0 14px; line-height:1.6; }
+  .pull-note{ font-size:12px; color:var(--ink-faint); margin:8px 0 14px; line-height:1.6; }
+  /* three rules of thumb — scannable, not prose */
+  .rules{ display:flex; flex-wrap:wrap; gap:7px 18px; margin:10px 0 0; font-size:12px; color:var(--ink-soft); }
+  .rules span{ display:flex; align-items:baseline; gap:6px; }
+  .rules b{ font-family:var(--mono); font-size:11px; color:var(--copper); white-space:nowrap; }
   /* ---- Fetch: one-click pipeline, presets, finish summary ---- */
   .pipe-main{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
   .pipe-note{ font-size:13px; color:var(--ink-soft); line-height:1.6; }
@@ -926,9 +930,12 @@
             <span class="p-meta">1900–1922 · 200 hits · ~2 min</span>
             <span class="p-why">Whistling taught as an art — the professionalisation story.</span></button>
         </div>
-        <p class="pull-note">A card loads its search — then press <b>Build my corpus</b>, one pull per sitting.
-          Phrase terms beat bare words: “whistling” alone matches ~100,000 pages a decade, mostly trains and wind.
-          After each pull: <b>Review</b>, then <b>Export JSON</b>.</p>
+        <div class="rules">
+          <span><b>≤ 500 hits/run</b> — ~4 min; big enough for trends, small enough to review</span>
+          <span><b>15–20-year windows</b> — era slices compare cleanly; one 1836–1922 blob doesn't</span>
+          <span><b>Phrases, not bare words</b> — “whistling” alone ≈ 100k pages a decade, mostly trains &amp; wind</span>
+        </div>
+        <p class="pull-note">A card loads its search — press <b>Build my corpus</b>. After each pull: <b>Review</b>, then <b>Export JSON</b>.</p>
         <div class="row" style="align-items:flex-end">
           <label class="field" style="flex:2 1 320px"><span>Search terms — one per line (phrases allowed)</span>
             <textarea id="archiveTerms" rows="6" spellcheck="false"></textarea></label>
