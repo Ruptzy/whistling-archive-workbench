@@ -87,7 +87,9 @@ Governing rule: **where a number wasn't measured, nothing is printed.** The repo
 Double-click index.html
 ```
 
-That's the whole procedure. For development, any static server avoids `file://` quirks:
+That's the whole procedure. To make it feel like an installed program on Windows, double-click
+**`Install Whistling Archive.bat`** once — it puts a **Whistling Archive** icon on the Desktop that
+opens the tool in its own window (Edge/Chrome app mode; nothing is installed, nothing is copied). For development, any static server avoids `file://` quirks:
 
 ```bash
 python -m http.server 8777

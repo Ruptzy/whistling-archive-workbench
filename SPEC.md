@@ -518,6 +518,14 @@ user can view/edit. Override always wins and is marked as user-set.
   live `matchMedia` listener, which is both more correct and what let the reduced-motion path be verified.
   *Verified against a real 99-record corpus* (70 fetched from Chronicling America + the sample tour CSV):
   filtered row counts cross-check exactly against heatmap cell and column totals.
+- **Desktop-app launcher. ✅ DONE (2026-08-25).** `Install Whistling Archive.bat` →
+  `tools/create-shortcut.ps1` creates a Desktop shortcut that launches Edge (or Chrome) in
+  **app mode** (`--app=file:///…/index.html`): own window, no browser chrome, taskbar presence,
+  the bundled `WhistlingArchive.ico` as its icon. Falls back to the default browser when neither
+  is present. Nothing is installed or copied — the shortcut points at the folder's own
+  `index.html`, so the `file://` origin (and therefore her IndexedDB data) is identical to a
+  plain double-click. Verified live: Edge found, spaces in the path URI-encoded correctly,
+  icon attached. The icon is a generated placeholder pending the user's own artwork.
 - **First-pulls & pipeline nav. ✅ DONE (2026-08-25).** (1) **Nav order now IS the workflow** —
   Home · Guide | **Fetch · Library** | Search · Network · Map · Trends · Performers | Report | Assistant ·
   Settings, with quiet group dividers (`.nsep`); Fetch was buried fourth despite being step one. (2) The
