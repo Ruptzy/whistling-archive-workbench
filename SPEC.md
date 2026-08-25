@@ -518,6 +518,17 @@ user can view/edit. Override always wins and is marked as user-set.
   live `matchMedia` listener, which is both more correct and what let the reduced-motion path be verified.
   *Verified against a real 99-record corpus* (70 fetched from Chronicling America + the sample tour CSV):
   filtered row counts cross-check exactly against heatmap cell and column totals.
+- **First-pulls & pipeline nav. ✅ DONE (2026-08-25).** (1) **Nav order now IS the workflow** —
+  Home · Guide | **Fetch · Library** | Search · Network · Map · Trends · Performers | Report | Assistant ·
+  Settings, with quiet group dividers (`.nsep`); Fetch was buried fourth despite being step one. (2) The
+  Fetch tab opens with **four "suggested first pulls" cards** (siffleuses 1885–1915 · 300; performers
+  1880–1900 · 300; performers 1900–1922 · 300; schools 1900–1922 · 200) — one click loads preset, years and
+  cap; the cards replace the how-to prose rather than adding to it. Rationale printed with them: phrase
+  terms beat bare words (measured: bare "whistling" ≈ 85k–178k pages/decade, mostly trains and wind).
+  (3) **The broad preset was quietly self-defeating:** its first term was bare `whistling`, and since
+  search fills the hit cap in term order, era pulls would have filled with noise before the performer
+  phrases ran. Reordered precision-first and dropped the bare term — **every term in the four cards is now
+  in `TERM_CATEGORY`**, so every hit from them arrives pre-classified (no UNSURE floods by construction).
 - **Pipeline speed pass. ✅ DONE (2026-08-25).** "Build my corpus" was serial end to end; three changes,
   none of which touch the politeness promises:
   1. **Pooled text fetch.** ALTO pages are 1–5 MB, so download latency dominated (~0.3–0.7 pages/s
