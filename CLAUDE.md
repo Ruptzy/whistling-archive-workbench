@@ -47,6 +47,12 @@ import, search, annotate, and visualize historical newspaper mentions of whistli
   beats a confident wrong label. Tune it as DATA (`DEFAULT_CAT_RULES`, `TERM_CATEGORY`, `NAME_TITLES`,
   `NAME_STOP`, `ART_CONTEXT`, the constants), not as new branches; changed defaults need a matching entry
   in `LEGACY_CAT_RULES` so `upgradeCatRules()` re-seeds untouched installs.
+- **Re-classify through `planReclassify()`/`applyReclassify()`, never by hand.** `categoryFor(r)` is the one
+  rule (text verdict → term seed → `unsure`), and it must be able to return `unsure`: a `null` verdict has to
+  CLEAR a stale label, or improving the engine can never repair a library harvested under the old one — the
+  bug that left ~500 records mislabelled after AD-017. Anything that writes `r.category` in bulk goes through
+  the plan so Classify, Settings → *Re-suggest*, and the pipeline stay identical and idempotent. Never touch
+  `categoryUserSet` records, and confirm before a run that would clear labels.
 - **Measure before you ship classifier changes.** Settings → About has BOTH *Run self-checks* (35, incl.
   every AD-017 mechanism) and *Run classifier eval* — 62 labelled period passages (`CLASSIFIER_EVAL`) with
   misfires reported separately from honest abstentions. Baseline for context: the pre-AD-017 classifier

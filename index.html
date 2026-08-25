@@ -2913,10 +2913,35 @@ function deletePreset(){ const id=$("#archPreset").value; const ps=Settings.get(
 -------------------------------------------------------------------------- */
 let _pipeCancel=false;
 // Re-run the rule-based classifier over records the user hasn't set by hand.
-function classifyAll(){ let n=0;
-  Store.all().forEach(r=>{ if(r.categoryUserSet||!r.fullText) return;
-    const s=suggestCategory(r); if(s&&s!==r.category){ r.category=s; n++; } });
-  if(n){ persist(); Store.notify(); } return n; }
+/* The category a record SHOULD carry under the CURRENT engine: the text verdict,
+   else the search term's seed, else unsure. */
+function categoryFor(r){
+  return (r.fullText?suggestCategory(r):null) || categoryFromTerm(r.matchedTerm) || "unsure";
+}
+/* Dry run — works out every change without touching the store, so a caller can
+   report (or confirm) before committing.
+   The load-bearing part is that a record can move BACK to "unsure". The engine
+   returning null means "I will not guess"; leaving the old label in place then
+   makes every past mistake permanent, so improving the classifier could never
+   repair an existing library. Records the user set by hand are never touched. */
+function planReclassify(){
+  const plan={relabel:[], clear:[], noText:0, userSet:0, examined:0};
+  Store.all().forEach(r=>{
+    if(r.categoryUserSet){ plan.userSet++; return; }
+    plan.examined++;
+    const want=categoryFor(r);
+    if(!r.fullText && want==="unsure") plan.noText++;
+    if(want!==(r.category||"unsure")) (want==="unsure"?plan.clear:plan.relabel).push({r,want});
+  });
+  return plan;
+}
+function applyReclassify(plan){
+  plan.relabel.concat(plan.clear).forEach(({r,want})=>{ r.category=want; });
+  const n=plan.relabel.length+plan.clear.length;
+  if(n){ persist(); Store.notify(); }
+  return n;
+}
+function classifyAll(){ return applyReclassify(planReclassify()); }
 
 async function runPipeline(){
   const terms=$("#archiveTerms").value.split("\n").map(s=>s.trim()).filter(Boolean);
@@ -6083,6 +6108,15 @@ const SELF_CHECKS=[
   // The search API measured 35-55s under load; a short timeout reports a working
   // server as an unexplained abort. Never trim this back to the file-download value.
   ["patience: the slow search API gets at least 60s", ()=>CA.JSON_TIMEOUT>=60000],
+  // Re-classifying must be able to REMOVE a stale label, or improving the engine
+  // could never repair a library harvested under an older one.
+  ["reclassify: an abstention clears an old engine's guess",
+    ()=>categoryFor({fullText:"An etching by James McNeill Whistler hung in the gallery.",
+                     category:"music-performance"})==="unsure"],
+  ["reclassify: the search term still settles a text-less record",
+    ()=>categoryFor({fullText:"", matchedTerm:"siffleuse", category:"unsure"})==="music-performance"],
+  ["reclassify: a real verdict still wins",
+    ()=>categoryFor({fullText:"The wind whistled through the trees.", category:"person-whistling"})==="wind-weather"],
 ];
 function runSelfChecks(show){
   const results=SELF_CHECKS.map(([name,fn])=>{ let ok=false;
@@ -6184,22 +6218,25 @@ function wireEvents(){
   $("#btnExportCsvAll").onclick=()=>{ if(!Store.count()) return toast("Nothing to export yet.");
     download(`whistling-library-${stamp()}.csv`,recordsToCsv(activeRecords()),"text/csv"); toast("Exported to CSV.","ok"); };
   $("#btnClassify").onclick=()=>{ if(!Store.count()) return toast("No records yet.");
-    let n=0, noText=0, seeded=0;
-    Store.all().forEach(r=>{
-      if(r.categoryUserSet) return;
-      if(!r.fullText){
-        // no OCR text, but the term that found it may already settle the category
-        const seed=categoryFromTerm(r.matchedTerm);
-        if(seed && seed!==r.category){ r.category=seed; seeded++; }
-        else if((r.category||"unsure")==="unsure") noText++;   // genuinely blocked, not just already done
-        return;
-      }
-      const s=suggestCategory(r); if(s && s!==r.category){ r.category=s; n++; } });
-    if(n+seeded){ persist(); Store.notify(); }
-    const done=n+seeded;
-    if(noText) toast((done?`Classified ${done}. `:"")+`${noText} record(s) have no article text yet — that is why they show “No text yet”.`,
+    const plan=planReclassify();
+    // Re-reading the whole library with the current engine can REMOVE a label an
+    // older engine had guessed. That is the point, but it is a data change, so
+    // say exactly what will happen before doing it (SPEC prime directive 2).
+    if(plan.clear.length && !confirm(
+        `Re-read all ${plan.examined} record(s) with the current classifier?\n\n`
+        +`• ${plan.relabel.length} would get a new category\n`
+        +`• ${plan.clear.length} would go back to “Unsure” — the classifier will not guess on those any more\n`
+        +`• ${plan.userSet} categor${plan.userSet===1?"y you set by hand stays":"ies you set by hand stay"} untouched\n\n`
+        +`Records that go back to Unsure had been labelled by an older, less careful rule set.`)) return;
+    const done=applyReclassify(plan);
+    const bits=[];
+    if(plan.relabel.length) bits.push(`${plan.relabel.length} re-categorised`);
+    if(plan.clear.length) bits.push(`${plan.clear.length} moved to Unsure (the classifier would not guess)`);
+    if(plan.noText) toast((bits.length?bits.join(", ")+". ":"")
+        +`${plan.noText} record(s) have no article text yet — that is why they show “No text yet”.`,
       done?"ok":"", {ms:9000, action:{label:"Fetch text", fn:()=>showView("fetch")}});
-    else toast(done?`Classified ${done} record(s).`:"Everything is already classified.", done?"ok":""); };
+    else toast(bits.length?bits.join(", ")+"." : "Every record already matches the current classifier.",
+      done?"ok":"", {ms:8000}); };
   $("#btnReview").onclick=()=>Review.open();
   $("#btnSaveCollection").onclick=()=>{ const recs=visibleLibraryRecords(); if(!recs.length) return toast("Nothing to save.");
     const name=prompt(`Name this collection (${recs.length} records):`); if(name) saveCollection(name.trim(),recs.map(r=>r.id)); };
@@ -6324,9 +6361,13 @@ function wireEvents(){
   $("#btnResetRules").onclick=()=>{ Settings.resetRules(); refreshSettingsView(); toast("Rules reset."); };
   $("#btnSaveCatRules").onclick=()=>{ Settings.set("categoryRules",Settings.mapFromText($("#catRules").value)); toast("Category rules saved.","ok"); };
   $("#btnResetCatRules").onclick=()=>{ Settings.resetCatRules(); refreshSettingsView(); toast("Category rules reset."); };
-  $("#btnRecat").onclick=()=>{ if(!confirm("Re-suggest categories for records you haven't manually set?")) return;
-    let n=0; Store.all().forEach(r=>{ if(!r.categoryUserSet){ const s=suggestCategory(r); if(s&&s!==r.category){ Store.update(r.id,{category:s}); n++; } } });
-    toast(`Updated ${n} record(s).`,"ok"); };
+  $("#btnRecat").onclick=()=>{ const plan=planReclassify();
+    if(!confirm(`Re-read ${plan.examined} record(s) with the current classifier?\n\n`
+        +`• ${plan.relabel.length} would get a new category\n`
+        +`• ${plan.clear.length} would go back to “Unsure”\n`
+        +`• ${plan.userSet} you set by hand stay untouched`)) return;
+    applyReclassify(plan);
+    toast(`${plan.relabel.length} re-categorised, ${plan.clear.length} moved to Unsure.`,"ok",{ms:8000}); };
   $("#btnSaveClusterRules").onclick=()=>{ Settings.set("clusterRules",Settings.mapFromText($("#clusterRules").value)); toast("Cluster rules saved.","ok"); };
   $("#btnResetClusterRules").onclick=()=>{ Settings.resetClusterRules(); refreshSettingsView(); toast("Cluster rules reset."); };
   $("#btnSaveGaz").onclick=()=>{ Settings.set("gazetteer",Settings.gazFromText($("#gazetteer").value)); toast("Gazetteer saved.","ok"); };

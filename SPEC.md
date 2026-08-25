@@ -278,7 +278,17 @@ patterns across time, place, performer, and theme.
      painters, towns, officers and marmots — seeding them violated the never-guess rule.
   10. **Upgrade path:** category rules persist as user data, so `upgradeCatRules()` re-seeds stored rules
      that are order-insensitively identical to a past default set; any user edit still wins.
-  11. **Measurement is in-app:** Settings → About → *Run classifier eval* scores the live classifier
+  11. **Re-classifying can REMOVE a label, which is what lets an engine upgrade repair an old library.**
+     Every re-classify path used `if(s && s !== r.category)`, so a `null` verdict left the previous label
+     untouched — meaning ~500 records harvested under the old rules kept their confident wrong categories
+     no matter how much the classifier improved. One rule now decides: `categoryFor(r)` = text verdict,
+     else the search term's seed, else **`unsure`**. `planReclassify()` computes every change without
+     touching the store so the UI can state exactly what will happen (*n re-categorised, n back to Unsure,
+     n you set by hand untouched*) and confirm before committing, per prime directive 2; `applyReclassify()`
+     commits. Classify, Settings → *Re-suggest for all records*, and the pipeline's `classifyAll()` all run
+     the same plan, so they cannot drift apart, and a second run is a no-op. `categoryUserSet` records are
+     never touched — the professor's own judgments outrank every engine.
+  12. **Measurement is in-app:** Settings → About → *Run classifier eval* scores the live classifier
      against the 62-case corpus (`CLASSIFIER_EVAL`) and reports misfires vs honest abstentions separately;
      35 self-checks pin every mechanism above. Known accepted miss: a village item where a boy's whistling
      and the locomotive whistle answering him share one page labels train-machine.
