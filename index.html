@@ -2916,7 +2916,12 @@ async function runPipeline(){
       if(left&&!_pipeCancel) archLog(`   ${left} cit${left===1?"y":"ies"} could not be placed — the Map's “Geocode online” can retry them.`);
     } else archLog("5/5 Map places — everything with a city is already placed.");
   }catch(e){ Geo.stop();
-    if(e.rateLimited){
+    if(e.serverBusy){
+      // Their outage, not the user's error and not a lost run.
+      _pipeCancel=true;
+      archLog("⛔ LIBRARY OF CONGRESS UNAVAILABLE — "+e.message);
+      toast("The Library of Congress service is down right now — the run paused, nothing lost.","err");
+    } else if(e.rateLimited){
       // Not a crash — a pause. Flagging the pipeline as cancelled makes the
       // closing line read "stopped, press again to carry on", which is exactly
       // the truth: every record already fetched is saved and resumable.
@@ -5118,6 +5123,15 @@ function rateLimitError(retryAfterSec){
   e.rateLimited=true; e.retryAfter=retryAfterSec||0;
   return e;
 }
+/* 502/503/504 from loc.gov means their service is overloaded — a different thing
+   from being throttled (429) and not the user's fault at all. Saying so keeps
+   them from hunting for a mistake on their end. */
+function serverBusyError(status){
+  const e=new Error("The Library of Congress service is temporarily unavailable (HTTP "
+    +(status||503)+"). This is on their end, not yours — nothing already saved was lost. "
+    +"Wait a few minutes and press the same button again to resume.");
+  e.serverBusy=true; return e;
+}
 const CA = (()=>{
   const SEARCH="https://www.loc.gov/search/";
   const RL_GIVE_UP=8;      // consecutive 429s that mean "blocked", not "slow down"
@@ -5128,9 +5142,25 @@ const CA = (()=>{
   // JSON API <=20/min; tile.loc.gov storage <=150/min. We start text requests
   // every TEXT_SPACING ms with TEXT_POOL in flight => ~133/min ceiling.
   const JSON_SPACING=3500, TEXT_SPACING=450, TEXT_POOL=5, FETCH_TIMEOUT=20000;
-  async function fetchT(url){ const ctl=new AbortController();
-    const tm=setTimeout(()=>ctl.abort(),FETCH_TIMEOUT);
-    try{ return await fetch(url,{signal:ctl.signal}); } finally{ clearTimeout(tm); } }
+  // The loc.gov SEARCH API is genuinely slow under load — measured 35–55 s for one
+  // dated Chronicling America page (2026-08-25), against the 20 s that suits a
+  // tile.loc.gov file download. Too short a timeout turned a working-but-slow
+  // server into four rounds of "signal is aborted without reason".
+  const JSON_TIMEOUT=90000;
+  // Requests are tracked so Stop can abort them at once. That is what lets the
+  // JSON timeout be generous without making Stop feel dead.
+  const inFlight=new Set();
+  async function fetchT(url, ms){ const ctl=new AbortController();
+    inFlight.add(ctl);
+    const tm=setTimeout(()=>ctl.abort(), ms||FETCH_TIMEOUT);
+    try{ return await fetch(url,{signal:ctl.signal}); }
+    finally{ clearTimeout(tm); inFlight.delete(ctl); } }
+  function abortAll(){ for(const c of inFlight){ try{ c.abort(); }catch(_){ } } inFlight.clear(); }
+  // A browser abort reports only "signal is aborted without reason", which tells
+  // the user nothing. Name what actually happened.
+  const timeoutMsg=(e,ms)=>(e&&e.name==="AbortError")
+    ? new Error(`no answer from the Library of Congress within ${Math.round((ms||FETCH_TIMEOUT)/1000)}s`)
+    : e;
   // `stopped` is consulted between attempts so Stop answers within one
   // timeout (<=20s), not after the whole retry ladder (~90s on a dead host).
   // Every path out of this function is an explicit value or throw. A 429 ladder
@@ -5139,10 +5169,10 @@ const CA = (()=>{
   // of Congress was throttling us. That is the bug behind "it stopped working
   // and I had no idea I'd hit a limit".
   async function getJSON(url, tries=4, stopped, onNote){
-    let lastErr=null, saw429=0, retryAfter=0;
+    let lastErr=null, saw429=0, retryAfter=0, saw5xx=0;
     for(let i=0;i<tries;i++){
       if(stopped&&stopped()) throw new Error("stopped");
-      try{ const r=await fetchT(url);
+      try{ const r=await fetchT(url, JSON_TIMEOUT);
         if(r.status===429){ saw429++;
           const ra=parseInt(r.headers.get("retry-after")||"",10)||0;
           if(ra>0) retryAfter=Math.max(retryAfter,ra);
@@ -5154,14 +5184,22 @@ const CA = (()=>{
           const wait=Math.min(RL_WAIT_CAP_S*1000, Math.max(6000*(i+1), ra*1000));
           onNote&&onNote(`⏳ Library of Congress asked us to slow down — waiting ${Math.round(wait/1000)}s (try ${i+2} of ${tries})…`);
           await sleep(wait); continue; }
+        // 502/503/504: their service is overloaded. Not throttling, not our bug —
+        // back off harder than a normal retry and name it for the user.
+        if(r.status===503||r.status===502||r.status===504){ saw5xx=r.status;
+          if(i===tries-1) break;
+          const wait=Math.min(30000, 8000*(i+1));
+          onNote&&onNote(`⏳ Library of Congress is overloaded (HTTP ${r.status}) — waiting ${Math.round(wait/1000)}s (try ${i+2} of ${tries})…`);
+          await sleep(wait); continue; }
         if(!r.ok) throw new Error("HTTP "+r.status); return await r.json(); }
       catch(e){ if(stopped&&stopped()) throw new Error("stopped");
         if(e.rateLimited) throw e;   // our own deliberate bail-out, not a transport fault
-        lastErr=e; if(i===tries-1) break;
-        onNote&&onNote(`⚠ ${e.message} — retrying (${i+2} of ${tries})…`);
+        lastErr=timeoutMsg(e, JSON_TIMEOUT); if(i===tries-1) break;
+        onNote&&onNote(`⚠ ${lastErr.message} — retrying (${i+2} of ${tries})…`);
         await sleep(2500*(i+1)); }
     }
     if(saw429) throw rateLimitError(retryAfter);
+    if(saw5xx) throw serverBusyError(saw5xx);
     throw lastErr||new Error("no response after "+tries+" attempts");
   }
   // OCR file URL is derivable from the result's image_url (no extra JSON call):
@@ -5189,19 +5227,25 @@ const CA = (()=>{
     cancel=false; const {startYear,endYear,max,onProgress}=opts;
     const seen=new Set(Store.all().map(r=>r.sourceUrl).filter(Boolean));
     const created=[]; let rateLimited=null, tIdx=0;
-    const pageC=Math.min(1000, Math.max(20, max)); // page size scales with target — small fetches stay fast
+    // Page size is capped: one 500-hit page is a ~15 MB response that routinely
+    // outlives any timeout, while 100 hits with `at=` is ~430 KB. Several small
+    // pages beat one page that never arrives.
+    const pageC=Math.min(100, Math.max(20, max));
     const span=(startYear&&endYear)?` ${startYear}–${endYear}`:"";
     for(const term of terms){ tIdx++; if(cancel||created.length>=max) break;
       const q=encodeURIComponent('"'+term.replace(/"/g,"")+'"'); let sp=1;
       const label=`term ${tIdx}/${terms.length} “${term}”${span}`;
       while(!cancel && created.length<max){
-        let url=`${SEARCH}?q=${q}&fa=partof:chronicling+america&fo=json&c=${pageC}&sp=${sp}`;
+        // `at=` trims the reply to what we actually read: the full envelope
+        // carries collection metadata and facets worth ~7x the results themselves
+        // (3.1 MB -> 431 KB measured), all of it discarded by recFromResult.
+        let url=`${SEARCH}?q=${q}&fa=partof:chronicling+america&fo=json&at=results,pagination&c=${pageC}&sp=${sp}`;
         if(startYear&&endYear) url+=`&dates=${startYear}/${endYear}`;
         onProgress&&onProgress(`Searching ${label} — page ${sp}…  (${created.length} of ${max} hits so far)`);
         let data; try{ data=await getJSON(url, 4, ()=>cancel, (n)=>onProgress&&onProgress(`${label}: ${n}`)); }
         catch(e){ if(cancel) break;
           onProgress&&onProgress(`⚠ ${term}: ${e.message}`);
-          if(e.rateLimited){ rateLimited=e; cancel=true; }
+          if(e.rateLimited||e.serverBusy){ rateLimited=e; cancel=true; }
           break; }
         const results=(data&&data.results)||[];
         const of=data&&data.pagination&&data.pagination.of;
@@ -5309,10 +5353,10 @@ const CA = (()=>{
     onProgress&&onProgress(`Done — ${ok} page(s) of text retrieved` + (cancel?" (stopped)":"") + `. ${all.length-done} still pending.`, 1);
     return ok;
   }
-  function stop(){ cancel=true; }
+  function stop(){ cancel=true; abortAll(); }   // abort in flight, don't wait out the timeout
   function pendingCount(){ return Store.all().filter(r=>r.provenance==="chronicling-america" && !r.fullText && (r.altoUrl||r.sourceUrl)).length; }
   return { search, fetchText, stop, pendingCount, recFromResult,
-           TEXT_SPACING, TEXT_POOL, JSON_SPACING };
+           TEXT_SPACING, TEXT_POOL, JSON_SPACING, JSON_TIMEOUT };
 })();
 
 /* ---- Online geocoding (free OpenStreetMap/Nominatim, throttled, cached) ----
@@ -5988,6 +6032,9 @@ const SELF_CHECKS=[
   ["politeness: text pool stays under 150/min", ()=>CA.TEXT_SPACING>=420 && CA.TEXT_POOL<=6
       && (60000/CA.TEXT_SPACING)<=150],
   ["politeness: JSON API stays under 20/min", ()=>CA.JSON_SPACING>=3400],
+  // The search API measured 35-55s under load; a short timeout reports a working
+  // server as an unexplained abort. Never trim this back to the file-download value.
+  ["patience: the slow search API gets at least 60s", ()=>CA.JSON_TIMEOUT>=60000],
 ];
 function runSelfChecks(show){
   const results=SELF_CHECKS.map(([name,fn])=>{ let ok=false;

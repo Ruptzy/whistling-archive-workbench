@@ -212,6 +212,23 @@ patterns across time, place, performer, and theme.
   **Progress must narrate.** Long silences read as a hang, so search reports term *k/n*, page, running total
   against target and the archive's own match count; both stages count their politeness pauses down out loud;
   text fetch names the newspaper being read and shows how often LoC has slowed us.
+- **AD-018 (2026-08-25): Be patient with a slow archive, and name a server outage as a server outage.**
+  Harvesting failed with `⚠ signal is aborted without reason — retrying (3 of 4)`. Measurement found two
+  causes and one reporting failure. **(1) The search API is far slower than the timeout allowed.** A single
+  dated Chronicling America query measured **35–55 s**; `FETCH_TIMEOUT` was 20 s, tuned for tile.loc.gov
+  file downloads, so the app aborted working requests. The JSON API now gets its own `JSON_TIMEOUT` (90 s,
+  floored at 60 s by a self-check) while file downloads keep 20 s. To stop a generous timeout making **Stop**
+  feel dead, every in-flight request is tracked and `CA.stop()` aborts them all at once.
+  **(2) The Library of Congress was returning HTTP 503**, not 429 — and 503 was falling through the generic
+  retry path with short sleeps. 502/503/504 now back off 8/16/24 s and raise `err.serverBusy`, which the
+  pipeline reports as *"the Library of Congress service is temporarily unavailable — this is on their end,
+  not yours"*, treated like the 429 pause: resumable, nothing lost. **(3) An `AbortError`'s only message is
+  "signal is aborted without reason"**, which tells a researcher nothing; aborts are now reported as *"no
+  answer from the Library of Congress within 90 s"*.
+  Two payload fixes make timeouts less likely in the first place: the request carries `at=results,pagination`
+  (the full envelope's collection metadata and facets are ~7× the results — **3.1 MB → 431 KB** measured,
+  all of it discarded by `recFromResult`), and page size is capped at 100 (`c=500` is a ~15 MB response that
+  routinely outlives any timeout; several small pages beat one page that never arrives).
 - **AD-017 (2026-08-25): The classifier was rebuilt for precision — the passage decides, evidence is
   tiered, and a verdict must be earned.** On a 62-case labelled corpus of period passages the previous
   classifier (even after AD-016's windowing) scored 22/62 with **32 confident wrong labels**; the rebuild

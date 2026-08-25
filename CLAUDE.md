@@ -52,6 +52,14 @@ import, search, annotate, and visualize historical newspaper mentions of whistli
   misfires reported separately from honest abstentions. Baseline for context: the pre-AD-017 classifier
   scored 22/62 with 32 misfires; the rebuild scores 61/62 with 1 (a mixed boy-whistler/locomotive page).
   Extend the eval with every newly discovered failure; never delete cases to make the numbers look better.
+- **Timeouts and outages (AD-018).** The loc.gov **search** API measured 35–55 s under load — it gets
+  `JSON_TIMEOUT` (90 s, floored by a self-check), NOT the 20 s `FETCH_TIMEOUT` that suits tile.loc.gov file
+  downloads; shrinking it back reports a working server as an unexplained abort. A long timeout is safe only
+  because `inFlight`/`abortAll()` let `CA.stop()` cancel requests immediately — keep that invariant. Classify
+  failures by *whose* fault they are: 429 = `err.rateLimited` (slow down), 502/503/504 = `err.serverBusy`
+  (their outage — say so, the user must not go hunting for a mistake), `AbortError` = name the timeout, never
+  pass "signal is aborted without reason" to a user. Keep requests small: `at=results,pagination` and a page
+  cap of 100 — a payload that never arrives is a failure no retry ladder can fix.
 - **No network failure may be silent (AD-016).** `getJSON` ends every path in a value or a `throw` — it once
   fell off its retry loop and returned `undefined`, so a rate-limited run died on `data.results` with no
   message. A throttled exhaustion throws `err.rateLimited`; callers must surface that distinctly, `fetchText`
