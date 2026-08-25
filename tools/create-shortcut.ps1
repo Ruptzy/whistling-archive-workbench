@@ -1,5 +1,5 @@
 # Creates a Desktop shortcut that opens the Whistling Archive Workbench
-# in its own window (Edge/Chrome "app mode"). No install, nothing copied:
+# in its own window (Chrome/Edge "app mode"). No install, nothing copied:
 # the shortcut simply points at the index.html sitting next to this script.
 $ErrorActionPreference = 'Stop'
 $dir  = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -8,12 +8,14 @@ $html = Join-Path $root 'index.html'
 if (!(Test-Path $html)) { Write-Host '  Could not find index.html next to the installer.'; exit 1 }
 $uri = ([uri]$html).AbsoluteUri
 
+# Chrome first by preference; Edge is the fallback so the shortcut still opens
+# in its own window on a machine without Chrome.
 $browsers = @(
-  "$Env:ProgramFiles\Microsoft\Edge\Application\msedge.exe",
-  "${Env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe",
   "$Env:ProgramFiles\Google\Chrome\Application\chrome.exe",
   "${Env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe",
-  "$Env:LocalAppData\Google\Chrome\Application\chrome.exe"
+  "$Env:LocalAppData\Google\Chrome\Application\chrome.exe",
+  "$Env:ProgramFiles\Microsoft\Edge\Application\msedge.exe",
+  "${Env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe"
 )
 $browser = $browsers | Where-Object { Test-Path $_ } | Select-Object -First 1
 
@@ -25,7 +27,7 @@ $old = Join-Path $desktop 'Whistling Archive.lnk'
 if (Test-Path $old) { Remove-Item $old -Force }
 $s  = $ws.CreateShortcut((Join-Path $desktop 'Whistling Archive Workbench.lnk'))
 if ($browser) { $s.TargetPath = $browser; $s.Arguments = '--app="' + $uri + '"' }
-else          { $s.TargetPath = $html }    # no Edge/Chrome: open in the default browser
+else          { $s.TargetPath = $html }    # no Chrome/Edge: open in the default browser
 $s.WorkingDirectory = $root
 # Windows caches shortcut icons by PATH, so an updated icon at the same path
 # keeps showing the old art. Copy it to a content-hashed name instead: new
@@ -47,4 +49,4 @@ $s.Save()
 Write-Host ''
 Write-Host '  Done - "Whistling Archive" is now on your Desktop.'
 if ($browser) { Write-Host '  Double-click it: the Workbench opens in its own window, like an app.' }
-else { Write-Host '  (Edge/Chrome not found, so it will open in your usual browser instead.)' }
+else { Write-Host '  (Chrome/Edge not found, so it will open in your usual browser instead.)' }

@@ -89,7 +89,7 @@ Double-click index.html
 
 That's the whole procedure. To make it feel like an installed program on Windows: **extract the ZIP
 first**, then double-click **`Install Whistling Archive.bat`** once — it puts a **Whistling Archive**
-icon on the Desktop that opens the tool in its own window (Edge/Chrome app mode; nothing installed,
+icon on the Desktop that opens the tool in its own window (Chrome app mode, or Edge if Chrome is absent; nothing installed,
 nothing copied). Windows shows its standard unsigned-file prompt on the first run only — the installer
 clears the downloaded-file mark from the folder so it never appears again. (Removing even the first
 prompt would require a paid code-signing certificate.) If it's run from inside the ZIP by mistake, it
