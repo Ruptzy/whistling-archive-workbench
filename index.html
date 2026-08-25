@@ -906,6 +906,7 @@
           <button class="btn small" id="btnExportCsvAll">Export → CSV</button>
           <button class="btn small ghost" id="btnClearAll">Clear all…</button>
         </div>
+        <div id="classifyReport" hidden></div>
         <div style="overflow:auto; max-height:64vh">
           <table class="records">
             <thead><tr><th>Date</th><th>Newspaper</th><th>City</th><th>Performer</th><th>Category</th><th>Excerpt</th><th></th></tr></thead>
@@ -2348,8 +2349,21 @@ function compiledCatRules(){
   _compiledRules={src, wordCats, phrases};
   return _compiledRules;
 }
-function suggestCategory(rec){
-  const text=rec&&rec.fullText; if(!text) return null;
+/* classifyCore returns the verdict AND why it reached it, so the Library can
+   answer the only question that matters when a record sits at Unsure: "is the
+   classifier being careful, or is this page simply not about whistling?"
+   suggestCategory is the thin wrapper everything else calls. */
+function suggestCategory(rec){ return classifyCore(rec).verdict; }
+const WHY={
+  "no-text":"No article text yet — fetch the text before this can be judged.",
+  "no-whistle-word":"No whistling word anywhere in the text — the archive's search matched something else on the page (often the surname Whistler).",
+  "name-only":"The only whistling words are the name Whistler (a person, the painter, or the town in Alabama), not whistling.",
+  "weak":"A whistling passage is here, but nothing around it says what kind of whistling it was.",
+  "split":"Two whistling passages on this page disagree, and neither is clearly the one that was searched for.",
+  "ok":"Classified from the passage around the whistling word.",
+};
+function classifyCore(rec){
+  const text=rec&&rec.fullText; if(!text) return {verdict:null, why:"no-text"};
   const toks=[]; const re=/\S+/g; let m;
   while((m=re.exec(text))) toks.push({w:m[0]});
   for(const t of toks) t.b=clBare(t.w);
@@ -2364,17 +2378,20 @@ function suggestCategory(rec){
     if(j>i) for(let k=i;k<=j;k++) toks[k].hd=true;
     i=j;
   }
-  const anchors=[];
+  const anchors=[]; let suppressed=0;
   for(let i=0;i<toks.length;i++){
     let hit=ANCHOR_WORD.test(toks[i].w);
     // ALTO sometimes leaves a line-break hyphenation unjoined: "whist-" + "ling".
     if(!hit && /-$/.test(toks[i].w) && toks[i+1])
       hit=ANCHOR_WORD.test(toks[i].w.slice(0,-1)+toks[i+1].w);
     if(!hit) continue;
-    if(whistlerIsProperNoun(toks,i)) continue;
+    if(whistlerIsProperNoun(toks,i)){ suppressed++; continue; }
     anchors.push(i);
   }
-  if(!anchors.length) return null;             // nothing whistling-related to judge
+  // Nothing whistling-related to judge — and it matters WHY: a page with no
+  // whistle word at all is a false hit from the archive's stemmer, while one
+  // whose only whistle words are the surname Whistler is a different story.
+  if(!anchors.length) return {verdict:null, why:suppressed?"name-only":"no-whistle-word"};
   const {wordCats,phrases}=compiledCatRules();
   const seedCat=categoryFromTerm(rec.matchedTerm);   // the term that found the page is mild prior
   // The window that CONTAINS the matched search term is the passage the
@@ -2450,15 +2467,20 @@ function suggestCategory(rec){
   // it may speak for the page — a verdict from some unrelated whistling mention
   // elsewhere on the broadsheet must never label the record. If that passage
   // abstained, the page abstains (any category seeded at creation stands).
-  const pool=anyTermWin?verdicts.filter(v=>v.term):verdicts;
-  if(!pool.length) return null;
+  // …but only if that passage actually reached a verdict. When it did not, the
+  // rest of the page still gets to speak rather than the record falling silent:
+  // over-strictness here read as "it just changes everything to Unsure".
+  const termVerdicts=verdicts.filter(v=>v.term);
+  const pool=termVerdicts.length?termVerdicts:verdicts;
+  if(!pool.length) return {verdict:null, why:"weak"};
   pool.sort((a,b)=>b.s-a.s);
   const top=pool[0].s;
   const atTop=new Set(pool.filter(v=>v.s===top).map(v=>v.cat));
-  if(atTop.size===1) return pool[0].cat;
+  if(atTop.size===1) return {verdict:pool[0].cat, why:"ok"};
   // equal-strength disagreement even among the preferred windows: the seeded
   // category decides, or nobody does — never a coin flip.
-  return (seedCat&&atTop.has(seedCat))?seedCat:null;
+  return (seedCat&&atTop.has(seedCat))
+    ? {verdict:seedCat, why:"ok"} : {verdict:null, why:"split"};
 }
 
 /* ------------------------------ [SEARCH] ---------------------------- */
@@ -2769,6 +2791,20 @@ function renderFact(){ const el=$("#factText"); if(!el) return;
   const d=new Date(), start=new Date(d.getFullYear(),0,0); const day=Math.floor((d-start)/86400000);
   el.textContent=FACTS[(day+_factOffset)%FACTS.length]; }
 
+/* The report is the only view that keeps generated output on screen instead of
+   rebuilding from activeRecords(); after a re-classification its counts no
+   longer describe the corpus, so it must say so rather than quietly mislead. */
+function markReportStale(){
+  const panel=$("#reportPanel"), out=$("#reportOut");
+  if(!panel || panel.hidden || !window.__report || !out || $("#reportStale")) return;
+  const note=document.createElement("div");
+  note.id="reportStale"; note.className="wait-card"; note.style.marginBottom="14px";
+  note.innerHTML=`<h3>These figures are out of date</h3>
+    <p>The records changed after this report was generated, so the counts below no longer match your corpus.</p>
+    <div class="finish-acts"><button class="btn small" id="reportRegen">Generate it again</button></div>`;
+  out.parentNode.insertBefore(note, out);
+  const b=$("#reportRegen"); if(b) b.onclick=()=>{ const g=$("#repGenerate"); if(g) g.click(); };
+}
 function showView(name){
   $$(".view").forEach(v=>{ const on=v.id==="view-"+name; v.classList.toggle("active",on); v.hidden=!on; });
   $$('nav.tabs button').forEach(b=>b.setAttribute("aria-selected",String(b.dataset.view===name)));
@@ -2920,7 +2956,7 @@ let _pipeCancel=false;
    folder already in use (the browser keys the record store to that exact path),
    so there is no install step to reveal which copy is actually running — this
    stamp is how the user tells. Shown in Settings > About. */
-const APP_BUILD="2026-08-25 · classifier AD-017 · re-classify AD-018";
+const APP_BUILD="2026-08-25b · classifier AD-017 · re-classify + why-unsure AD-018";
 function categoryFor(r){
   return (r.fullText?suggestCategory(r):null) || categoryFromTerm(r.matchedTerm) || "unsure";
 }
@@ -2931,11 +2967,13 @@ function categoryFor(r){
    makes every past mistake permanent, so improving the classifier could never
    repair an existing library. Records the user set by hand are never touched. */
 function planReclassify(){
-  const plan={relabel:[], clear:[], noText:0, userSet:0, examined:0};
+  const plan={relabel:[], clear:[], noText:0, userSet:0, examined:0, why:{}};
   Store.all().forEach(r=>{
     if(r.categoryUserSet){ plan.userSet++; return; }
     plan.examined++;
-    const want=categoryFor(r);
+    const core=r.fullText?classifyCore(r):{verdict:null, why:"no-text"};
+    const want=core.verdict || categoryFromTerm(r.matchedTerm) || "unsure";
+    if(want==="unsure") plan.why[core.why]=(plan.why[core.why]||0)+1;   // why it stays unjudged
     if(!r.fullText && want==="unsure") plan.noText++;
     if(want!==(r.category||"unsure")) (want==="unsure"?plan.clear:plan.relabel).push({r,want});
   });
@@ -6235,14 +6273,30 @@ function wireEvents(){
         +`• ${plan.userSet} categor${plan.userSet===1?"y you set by hand stays":"ies you set by hand stay"} untouched\n\n`
         +`Records that go back to Unsure had been labelled by an older, less careful rule set.`)) return;
     const done=applyReclassify(plan);
-    const bits=[];
-    if(plan.relabel.length) bits.push(`${plan.relabel.length} re-categorised`);
-    if(plan.clear.length) bits.push(`${plan.clear.length} moved to Unsure (the classifier would not guess)`);
-    if(plan.noText) toast((bits.length?bits.join(", ")+". ":"")
-        +`${plan.noText} record(s) have no article text yet — that is why they show “No text yet”.`,
-      done?"ok":"", {ms:9000, action:{label:"Fetch text", fn:()=>showView("fetch")}});
-    else toast(bits.length?bits.join(", ")+"." : "Every record already matches the current classifier.",
-      done?"ok":"", {ms:8000}); };
+    // Report WHY, not just how many. "It just changes everything to Unsure" is
+    // the right complaint to have if the tool never says what it could not read.
+    const order=["no-text","no-whistle-word","name-only","weak","split"];
+    const lines=[];
+    if(plan.relabel.length) lines.push(`<b>${plan.relabel.length}</b> re-categorised from their text.`);
+    if(plan.clear.length) lines.push(`<b>${plan.clear.length}</b> moved back to Unsure — an older rule set had guessed at them.`);
+    if(plan.userSet) lines.push(`<b>${plan.userSet}</b> you set by hand, left untouched.`);
+    const whyRows=order.filter(k=>plan.why[k]).map(k=>`<li><b>${plan.why[k]}</b> — ${WHY[k]}</li>`);
+    const el=$("#classifyReport");
+    if(el){ el.hidden=false;
+      el.innerHTML=`<div class="wait-card"><h3>Classified ${plan.examined} record(s)</h3>`
+        +(lines.length?`<p>${lines.join("<br>")}</p>`:`<p>Nothing changed — every record already matches the current classifier.</p>`)
+        +(whyRows.length?`<p>Still Unsure, and why:</p><ul class="hint" style="margin:0 0 9px 18px">${whyRows.join("")}</ul>`:"")
+        +(plan.why["no-whistle-word"]||plan.why["name-only"]
+           ? `<p>Those are <b>false hits</b>: the archive's search stems words, so “whistling” also matches
+              the surname <i>Whistler</i>. They are not classification failures — the pages are not about whistling.</p>`:"")
+        +`<div class="finish-acts">`
+        +(plan.noText?`<button class="btn small" id="clsGoFetch">Fetch the missing text</button>`:"")
+        +`<button class="btn small ghost" id="clsHide">Close</button></div></div>`;
+      const gf=$("#clsGoFetch"); if(gf) gf.onclick=()=>showView("fetch");
+      $("#clsHide").onclick=()=>{ el.hidden=true; el.innerHTML=""; };
+      el.scrollIntoView({block:"nearest", behavior:"smooth"});
+    }
+    toast(done?`Classified ${plan.examined} record(s) — see the summary.`:"Nothing to change.", done?"ok":"", {ms:6000}); };
   $("#btnReview").onclick=()=>Review.open();
   $("#btnSaveCollection").onclick=()=>{ const recs=visibleLibraryRecords(); if(!recs.length) return toast("Nothing to save.");
     const name=prompt(`Name this collection (${recs.length} records):`); if(name) saveCollection(name.trim(),recs.map(r=>r.id)); };
@@ -6309,6 +6363,7 @@ function wireEvents(){
       if(!aiReady()){ toast("AI engine not ready — choose one in Settings, or uncheck AI.","err"); }
       else { $("#repStatus").textContent="Drafting the discussion with AI…"; aiText=await Report.aiDiscussion(d); } }
     window.__report={ html:Report.html(d,opts,aiText), md:Report.md(d,opts,aiText), title:opts.title };
+    const stale=$("#reportStale"); if(stale) stale.remove();   // figures are current again
     $("#reportOut").innerHTML=window.__report.html;
     $("#reportPanel").hidden=false; $("#repPrint").hidden=false; $("#repMd").hidden=false;
     $("#repStatus").textContent=`Report ready — ${d.n} record(s)${aiText?" · AI discussion included":""}.`;
@@ -6398,10 +6453,15 @@ async function boot(){
   Store.subscribe(renderLibrary);
   Store.subscribe(refreshScopeSel);
   Store.subscribe(updateDashboard);
-  Store.subscribe(()=>{ // keep open analysis views fresh after edits/imports
+  Store.subscribe(()=>{ // keep open analysis views fresh after edits/imports/re-classification
     const cur=$$('nav.tabs button').find(b=>b.getAttribute("aria-selected")==="true")?.dataset.view;
     if(cur==="network") renderNetwork(); else if(cur==="map") renderMap();
-    else if(cur==="trends") renderTrends(); else if(cur==="performers") renderPerformers(); });
+    else if(cur==="trends") renderTrends(); else if(cur==="performers") renderPerformers();
+    // Every other view rebuilds from activeRecords() when showView() opens it, so
+    // navigating is always current. The one exception is the REPORT: it is a
+    // generated snapshot that stays on screen, and a stale figure in a scholarly
+    // report is worse than no figure.
+    markReportStale(); });
   wireEvents(); refreshSettingsView(); refreshScopeSel(); applyPresentationMode();
   applyTheme((()=>{ try{ return localStorage.getItem("wa-theme"); }catch(_){ return null; } })()||"parchment"); // light by default; the toggle is remembered
   Sound.init(); renderFact(); renderPresets(); updateDashboard();

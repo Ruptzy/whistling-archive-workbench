@@ -47,6 +47,14 @@ import, search, annotate, and visualize historical newspaper mentions of whistli
   beats a confident wrong label. Tune it as DATA (`DEFAULT_CAT_RULES`, `TERM_CATEGORY`, `NAME_TITLES`,
   `NAME_STOP`, `ART_CONTEXT`, the constants), not as new branches; changed defaults need a matching entry
   in `LEGACY_CAT_RULES` so `upgradeCatRules()` re-seeds untouched installs.
+- **`classifyCore()` returns the verdict AND why (`WHY` map); `suggestCategory()` is the thin wrapper.**
+  When a record stays Unsure the user must be able to tell a careful classifier from a page that simply is
+  not about whistling — Classify reports the breakdown (`no-text` / `no-whistle-word` / `name-only` / `weak`
+  / `split`). Keep new abstention paths named there rather than returning a bare `null`.
+- **A store change must leave no stale view.** `Store.notify()` re-renders the Library, dashboard and the
+  open analysis view; every other view rebuilds from `activeRecords()` in `showView()`. The exception is the
+  **report**, which keeps generated output on screen — `markReportStale()` banners it, and generating again
+  clears the banner. Any future view that caches rendered output owes the same treatment.
 - **Re-classify through `planReclassify()`/`applyReclassify()`, never by hand.** `categoryFor(r)` is the one
   rule (text verdict → term seed → `unsure`), and it must be able to return `unsure`: a `null` verdict has to
   CLEAR a stale label, or improving the engine can never repair a library harvested under the old one — the
