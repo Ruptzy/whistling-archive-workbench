@@ -685,6 +685,16 @@
   .finish-card p b{ color:var(--ink); }
   .finish-acts{ display:flex; gap:8px; flex-wrap:wrap; }
 
+  /* Waiting on the archive, not on us: a notice that STAYS on screen (a toast
+     disappears before a worried user has finished reading it). */
+  .wait-card{ margin-top:14px; padding:15px 17px; border:1px solid var(--line-2);
+    border-left:3px solid var(--copper); border-radius:var(--radius);
+    background:color-mix(in srgb, var(--copper) 8%, var(--paper)); }
+  .wait-card h3{ margin:0 0 6px; font-size:16px; font-family:var(--serif); color:var(--copper); }
+  .wait-card p{ margin:0 0 9px; color:var(--ink-soft); font-size:13.5px; line-height:1.65; }
+  .wait-card p:last-child{ margin-bottom:0; }
+  .wait-card b{ color:var(--ink); }
+
   /* Unreadable scan: explain rather than print gibberish */
   .scan-poor{ font-style:italic; color:var(--ink-faint); border-bottom:1px dotted var(--line-2); cursor:help; }
   .scan-note{ font-size:12px; color:var(--ink-soft); background:color-mix(in srgb, var(--copper) 8%, transparent);
@@ -960,6 +970,7 @@
         <p class="pipe-note" style="margin:10px 0 0"><b>Search → text → categories → performers → map</b>, in one run.
           Stop any time; re-running picks up where it left off.</p>
         <div class="bar" id="archBarWrap" hidden style="margin-top:12px"><i id="archBar"></i></div>
+        <div id="archNotice" hidden></div>
         <div id="archSummary" hidden></div>
         <div id="archLog" class="fetch-log" hidden></div>
         <details class="adv">
@@ -2824,6 +2835,48 @@ function archBusy(b){ ["#archSearch","#archFetchText","#archExtract","#archHeu",
   const st=$("#archStop"); if(st) st.hidden=!b; const bw=$("#archBarWrap"); if(bw) bw.hidden=!b; }
 function archLog(m){ const l=$("#archLog"); if(!l) return; l.hidden=false;
   l.textContent+=(l.textContent?"\n":"")+m; l.scrollTop=l.scrollHeight; }
+/* A waiting-on-the-archive notice, in plain words and in a place that stays put.
+   The researcher's first instinct when a fetch stops is that SHE broke something,
+   so the first line's whole job is to say the fault is elsewhere and her work is
+   safe. `resume` is the button she should press when she comes back. */
+function archNotice(title, paras, resume){
+  const el=$("#archNotice"); if(!el) return;
+  el.hidden=false;
+  el.innerHTML=`<div class="wait-card"><h3>${esc(title)}</h3>`
+    +paras.map(p=>`<p>${p}</p>`).join("")
+    +(resume?`<div class="finish-acts"><button class="btn small" id="archNoticeGo">${esc(resume.label)}</button>
+        <button class="btn small ghost" id="archNoticeHide">Dismiss</button></div>`:"")
+    +`</div>`;
+  if(resume){ const go=$("#archNoticeGo"); if(go) go.onclick=()=>{ clearArchNotice(); resume.fn(); }; }
+  const hide=$("#archNoticeHide"); if(hide) hide.onclick=clearArchNotice;
+  el.scrollIntoView({block:"nearest", behavior:"smooth"});
+}
+function clearArchNotice(){ const el=$("#archNotice"); if(!el) return; el.hidden=true; el.innerHTML=""; }
+/* Shown whenever the archive (not the app) stopped the run: HTTP 429 or 5xx.
+   Every button that talks to the Library of Congress routes its pause here, so
+   the reassurance is identical wherever the run happened to stop. */
+function archPauseNotice(e, kept, resume){
+  const busy=!!e.serverBusy;
+  const mins=e.retryAfter>0?Math.max(1,Math.ceil(e.retryAfter/60)):0;
+  archLog((busy?"⏸ WAITING ON THE LIBRARY OF CONGRESS — ":"⏸ ASKED TO SLOW DOWN — ")+e.message);
+  archNotice(
+    busy ? "The Library of Congress is not answering right now"
+         : "The Library of Congress has asked us to slow down",
+    [ busy ? "Their website is having trouble — this happens from time to time and it is <b>on their end</b>. "
+             +"Nothing is wrong with this program or with your computer."
+           : "We have been reading their archive quickly and they have asked for a pause. "
+             +"Nothing is wrong with this program or with your computer.",
+      kept>0 ? `<b>Your work is safe.</b> The ${kept} record${kept===1?"":"s"} collected in this run `
+               +`${kept===1?"has":"have"} already been saved, along with everything from before.`
+             : "<b>Your work is safe.</b> Everything collected before this run is still saved.",
+      "<b>Please leave this window open</b>, make a cup of tea, and come back in "
+        +(mins?`about ${mins} minute${mins===1?"":"s"}`:(busy?"fifteen minutes or so":"ten minutes or so"))
+        +". Then press the button below and it will carry on from exactly where it stopped — "
+        +"nothing will be fetched twice." ],
+    resume);
+  toast(busy?"The Library of Congress is not answering — paused, nothing lost."
+            :"Asked to slow down — paused, nothing lost.","err",{ms:9000});
+}
 
 /* ---- Search presets — named term sets so she never re-types vocabulary ---- */
 function renderPresets(){ const sel=$("#archPreset"); if(!sel) return;
@@ -2874,7 +2927,7 @@ async function runPipeline(){
   const before=Store.count(); const STAGES=5; let stage=0;
   const setBar=(f)=>{ $("#archBar").style.width=Math.round(100*clamp((stage+(f||0))/STAGES,0,1))+"%"; };
   const say=(m,f)=>{ $("#archStatus").textContent=m; setBar(f); };
-  archBusy(true); $("#archSummary").hidden=true;
+  archBusy(true); $("#archSummary").hidden=true; clearArchNotice();
   archLog(`▶ Building corpus — ${terms.length} term(s), up to ${max} hits.`);
   let created=[];
   try{
@@ -2916,18 +2969,10 @@ async function runPipeline(){
       if(left&&!_pipeCancel) archLog(`   ${left} cit${left===1?"y":"ies"} could not be placed — the Map's “Geocode online” can retry them.`);
     } else archLog("5/5 Map places — everything with a city is already placed.");
   }catch(e){ Geo.stop();
-    if(e.serverBusy){
-      // Their outage, not the user's error and not a lost run.
+    if(e.serverBusy||e.rateLimited){
+      // Their archive, not the user's error and not a lost run.
       _pipeCancel=true;
-      archLog("⛔ LIBRARY OF CONGRESS UNAVAILABLE — "+e.message);
-      toast("The Library of Congress service is down right now — the run paused, nothing lost.","err");
-    } else if(e.rateLimited){
-      // Not a crash — a pause. Flagging the pipeline as cancelled makes the
-      // closing line read "stopped, press again to carry on", which is exactly
-      // the truth: every record already fetched is saved and resumable.
-      _pipeCancel=true;
-      archLog("⛔ RATE LIMITED — "+e.message);
-      toast("Rate limited by the Library of Congress — the run paused, nothing lost.","err");
+      archPauseNotice(e, Store.count()-before, {label:"Try again now", fn:()=>runPipeline()});
     } else { archLog("⚠ "+e.message); toast("Pipeline stopped: "+e.message,"err"); } }
   stage=STAGES; setBar(0);
   archBusy(false); $("#archBar").style.width="0%"; updateArchStatus();
@@ -5117,9 +5162,11 @@ function geofill(){ let n=0; const gaz=Settings.get("gazetteer");
    `err.rateLimited` is that signal. */
 function rateLimitError(retryAfterSec){
   const mins=retryAfterSec>0?Math.max(1,Math.ceil(retryAfterSec/60)):0;
-  const e=new Error("The Library of Congress is rate-limiting this connection (HTTP 429). "
-    +"Everything already saved was kept — wait "+(mins?"about "+mins+" min":"a few minutes")
-    +", then press the same button again to resume.");
+  const e=new Error("The Library of Congress is asking us to slow down (error 429) — we have been "
+    +"reading their archive quickly. Nothing is wrong with this program, and everything already "
+    +"collected has been kept. Leave this window open, wait "
+    +(mins?"about "+mins+" minute"+(mins===1?"":"s"):"ten minutes or so")
+    +", then press the button again — it will carry on from where it stopped.");
   e.rateLimited=true; e.retryAfter=retryAfterSec||0;
   return e;
 }
@@ -5127,9 +5174,10 @@ function rateLimitError(retryAfterSec){
    from being throttled (429) and not the user's fault at all. Saying so keeps
    them from hunting for a mistake on their end. */
 function serverBusyError(status){
-  const e=new Error("The Library of Congress service is temporarily unavailable (HTTP "
-    +(status||503)+"). This is on their end, not yours — nothing already saved was lost. "
-    +"Wait a few minutes and press the same button again to resume.");
+  const e=new Error("The Library of Congress website is not responding right now (error "
+    +(status||503)+"). Nothing is wrong with this program or your computer, and nothing you have "
+    +"already collected has been lost. Leave this window open, wait a little while, and press the "
+    +"button again — it will carry on from where it stopped.");
   e.serverBusy=true; return e;
 }
 const CA = (()=>{
@@ -6080,7 +6128,8 @@ function wireEvents(){
     try{ const created=await CA.search(terms,{startYear:from,endYear:to,max,onProgress:(m)=>{$("#archStatus").textContent=m;}});
       archLog(`✓ Found ${created.length} new record(s). Now run “Fetch full text”.`);
       toast(`Imported ${created.length} record(s).`,"ok"); refreshScopeSel(); }
-    catch(e){ archLog("⚠ "+e.message); toast("Search failed: "+e.message,"err"); }
+    catch(e){ if(e.serverBusy||e.rateLimited) archPauseNotice(e, 0, {label:"Try the search again", fn:()=>$("#archSearch").onclick()});
+      else { archLog("⚠ "+e.message); toast("Search failed: "+e.message,"err"); } }
     archBusy(false); updateArchStatus();
   };
   $("#archFetchText").onclick=async()=>{
@@ -6089,7 +6138,8 @@ function wireEvents(){
     try{ const ok=await CA.fetchText({onProgress:(m,f)=>{ $("#archStatus").textContent=m; if(f!=null) $("#archBar").style.width=Math.round(f*100)+"%"; }});
       repairEntities();
       archLog(`✓ Retrieved full text for ${ok} page(s).`); toast(`Full text added to ${ok} record(s).`,"ok"); Sound.whistle(); }
-    catch(e){ archLog("⚠ "+e.message); }
+    catch(e){ if(e.serverBusy||e.rateLimited) archPauseNotice(e, 0, {label:"Fetch the rest of the text", fn:()=>$("#archFetchText").onclick()});
+      else archLog("⚠ "+e.message); }
     archBusy(false); $("#archBar").style.width="0%"; updateArchStatus();
   };
   $("#archExtract").onclick=async()=>{
