@@ -23,8 +23,19 @@ $s  = $ws.CreateShortcut((Join-Path $desktop 'Whistling Archive.lnk'))
 if ($browser) { $s.TargetPath = $browser; $s.Arguments = '--app="' + $uri + '"' }
 else          { $s.TargetPath = $html }    # no Edge/Chrome: open in the default browser
 $s.WorkingDirectory = $root
+# Windows caches shortcut icons by PATH, so an updated icon at the same path
+# keeps showing the old art. Copy it to a content-hashed name instead: new
+# artwork -> new path -> guaranteed cache miss, on every machine.
 $icon = Join-Path $root 'WhistlingArchive.ico'
-if (Test-Path $icon) { $s.IconLocation = "$icon,0" }
+if (Test-Path $icon) {
+  $hash = (Get-FileHash -LiteralPath $icon -Algorithm MD5).Hash.Substring(0,8).ToLower()
+  $store = Join-Path $env:LOCALAPPDATA 'WhistlingArchive'
+  New-Item -ItemType Directory -Force $store | Out-Null
+  $dest = Join-Path $store "icon-$hash.ico"
+  Copy-Item -LiteralPath $icon $dest -Force
+  Get-ChildItem $store -Filter 'icon-*.ico' | Where-Object { $_.FullName -ne $dest } | Remove-Item -Force
+  $s.IconLocation = "$dest,0"
+}
 $s.Description = 'Whistling Archive Workbench'
 $s.Save()
 
