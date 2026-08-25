@@ -1749,18 +1749,37 @@ function persist(){ if(!Persist.available) return; clearTimeout(_persistTimer);
 -------------------------------------------------------------------- */
 // Harvested text must never keep raw character references (see decodeEntities).
 // `notes` is excluded on purpose — that is the user's own writing, left verbatim.
-/* The Library of Congress page viewer marks the word passed in `q`. Its API
-   echoes back OUR search string, which we send QUOTED for an exact-phrase match
-   (q="whistling") — and a quoted phrase is a poor thing to hand a highlighter,
-   which is why the word stopped being marked on the scan when they moved
-   Chronicling America onto the loc.gov viewer. Rebuild `q` from the plain
-   matched term so the reader lands on the page with the word picked out.
-   Records with no matchedTerm (CSV/PDF imports) keep their URL untouched. */
+/* The scan opens with the word already marked — the whole reason to click through.
+   The viewer marks what is passed in `words`, the legacy Chronicling America
+   parameter that loc.gov still preserves when it redirects the old URLs.
+   One term is not enough: the viewer can only mark what it finds in THIS page's
+   OCR, so a page harvested under "whistling" that actually reads "whistled" came
+   up unmarked. Hand it every whistle-word genuinely present in the page text,
+   falling back to the search term while the text is still unfetched.
+   `q` is kept too so the viewer's own search box agrees with the marks. */
+const HL_MAX=8;
+function highlightWords(r){
+  const out=[], seen=new Set();
+  const push=(w)=>{ const b=String(w||"").toLowerCase()
+      .replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu,"");
+    if(b.length>2 && !seen.has(b) && out.length<HL_MAX){ seen.add(b); out.push(b); } };
+  const each=(s)=>String(s||"").split(/\s+/).forEach(push);
+  const re=r&&r.fullText?libraryTermRe():null;      // the words actually on the page
+  if(re){ const g=new RegExp(re.source,"gi"); let m;
+    while(out.length<HL_MAX && (m=g.exec(r.fullText))) each(m[0]); }
+  each(r&&r.matchedTerm);                            // then the term that found it
+  return out;
+}
 function sourceViewUrl(r){
   const raw=(r&&r.sourceUrl)||""; if(!raw) return "";
-  const term=String(r&&r.matchedTerm||"").replace(/["']/g,"").trim();
-  if(!term) return raw;
-  try{ const u=new URL(raw); u.searchParams.set("q", term); return u.toString(); }
+  const words=highlightWords(r);
+  if(!words.length) return raw;
+  // URLSearchParams encodes the separating spaces as "+", which is the form the
+  // viewer expects for a list of words to mark.
+  try{ const u=new URL(raw);
+       u.searchParams.set("words", words.join(" "));
+       u.searchParams.set("q", words[0]);
+       return u.toString(); }
   catch(_){ return raw; }                      // never break the link over a highlight
 }
 const TEXT_FIELDS=["fullText","newspaper","city","state","performer","epithet","composer",
@@ -6167,15 +6186,26 @@ const SELF_CHECKS=[
   // server as an unexplained abort. Never trim this back to the file-download value.
   ["patience: the slow search API gets at least 60s", ()=>CA.JSON_TIMEOUT>=60000],
   // The scan must open with the word marked: the highlight is the whole reason
-  // to click through to the original page.
-  ["original page: the matched word is handed to the viewer unquoted",
-    ()=>sourceViewUrl({sourceUrl:'https://www.loc.gov/resource/sn1/1900-01-01/ed-1/?sp=2&q=%22whistling%22',
-      matchedTerm:'whistling'})==='https://www.loc.gov/resource/sn1/1900-01-01/ed-1/?sp=2&q=whistling'],
+  // to click through to the original page. `words` is what the viewer marks.
+  ["original page: the word is handed to the viewer unquoted",
+    ()=>{ const u=sourceViewUrl({sourceUrl:'https://www.loc.gov/resource/sn1/1900-01-01/ed-1/?sp=2&q=%22whistling%22',
+      matchedTerm:'whistling'}); return u.includes("words=whistling") && !u.includes("%22"); }],
   ["original page: the page number survives the highlight",
     ()=>sourceViewUrl({sourceUrl:'https://www.loc.gov/resource/sn1/1900-01-01/ed-1/?sp=7',
       matchedTerm:'siffleuse'}).includes("sp=7")],
   ["original page: an imported record's link is left alone",
     ()=>sourceViewUrl({sourceUrl:'https://example.org/a.pdf'})==='https://example.org/a.pdf'],
+  // The viewer can only mark what is in THIS page's OCR. A page harvested under
+  // "whistling" that actually reads "whistled" must still open marked.
+  ["original page: the word actually on the page is marked, not just the search term",
+    ()=>highlightWords({matchedTerm:'whistling', fullText:'The boy whistled a tune.'}).includes('whistled')],
+  ["original page: several word-forms are sent as one +-joined list",
+    ()=>{ const u=sourceViewUrl({sourceUrl:'https://www.loc.gov/resource/sn1/1900-01-01/ed-1/?sp=3',
+      matchedTerm:'whistling', fullText:'A whistled air; the whistler bowed.'});
+      return /words=[^&]*\+/.test(u); }],
+  ["original page: no whistle-word anywhere leaves the link untouched",
+    ()=>sourceViewUrl({sourceUrl:'https://www.loc.gov/resource/sn1/1900-01-01/ed-1/?sp=3',
+      fullText:'A column of shipping news.'})==='https://www.loc.gov/resource/sn1/1900-01-01/ed-1/?sp=3'],
   // Re-classifying must be able to REMOVE a stale label, or improving the engine
   // could never repair a library harvested under an older one.
   ["reclassify: an abstention clears an old engine's guess",
