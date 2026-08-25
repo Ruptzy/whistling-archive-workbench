@@ -61,7 +61,8 @@ patterns across time, place, performer, and theme.
 - **AD-010 (2026-06-22): Visual identity = "Cyber-Folk Archive."** Old oral tradition meets machine
   learning — an ancient music machine, archival/ritual, warm and lamplit. All color/font/space/radius/
   texture values are CSS custom properties in one `:root` block (retune from one place). Two themes from
-  the same tokens: dark **archive** (default) + light **parchment**, swapped by one persisted toggle; no
+  the same tokens: dark **archive** + light **parchment** (default since 2026-08-25 — a research tool
+  reads first as a document, and newsprint is a daytime medium; the toggle is persisted per device); no
   component hardcodes a color outside the tokens. **Fonts:** EB Garamond (display serif — old-manuscript,
   scholarly, carries the personality), Inter (UI sans — disciplined, legible for long sessions), IBM Plex
   Mono (metadata/catalog numbers — "scanned record" feel). **Palette tokens** (brand names): `--ink-blue`,

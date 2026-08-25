@@ -5731,7 +5731,7 @@ async function boot(){
     if(cur==="network") renderNetwork(); else if(cur==="map") renderMap();
     else if(cur==="trends") renderTrends(); else if(cur==="performers") renderPerformers(); });
   wireEvents(); refreshSettingsView(); refreshScopeSel(); applyPresentationMode();
-  applyTheme((()=>{ try{ return localStorage.getItem("wa-theme"); }catch(_){ return null; } })()||"archive");
+  applyTheme((()=>{ try{ return localStorage.getItem("wa-theme"); }catch(_){ return null; } })()||"parchment"); // light by default; the toggle is remembered
   Sound.init(); renderFact(); renderPresets(); updateDashboard();
   if(!Persist.available) toast("Local auto-save is unavailable in this browser. Export JSON to keep your work.","err",{ms:8000});
   if(!Settings.get("tourSeen")) setTimeout(startTour,700);   // first run only; replayable from the Guide
