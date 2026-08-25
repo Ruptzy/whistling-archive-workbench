@@ -1749,6 +1749,20 @@ function persist(){ if(!Persist.available) return; clearTimeout(_persistTimer);
 -------------------------------------------------------------------- */
 // Harvested text must never keep raw character references (see decodeEntities).
 // `notes` is excluded on purpose — that is the user's own writing, left verbatim.
+/* The Library of Congress page viewer marks the word passed in `q`. Its API
+   echoes back OUR search string, which we send QUOTED for an exact-phrase match
+   (q="whistling") — and a quoted phrase is a poor thing to hand a highlighter,
+   which is why the word stopped being marked on the scan when they moved
+   Chronicling America onto the loc.gov viewer. Rebuild `q` from the plain
+   matched term so the reader lands on the page with the word picked out.
+   Records with no matchedTerm (CSV/PDF imports) keep their URL untouched. */
+function sourceViewUrl(r){
+  const raw=(r&&r.sourceUrl)||""; if(!raw) return "";
+  const term=String(r&&r.matchedTerm||"").replace(/["']/g,"").trim();
+  if(!term) return raw;
+  try{ const u=new URL(raw); u.searchParams.set("q", term); return u.toString(); }
+  catch(_){ return raw; }                      // never break the link over a highlight
+}
 const TEXT_FIELDS=["fullText","newspaper","city","state","performer","epithet","composer",
   "ensemble","venue","audience","genre","sponsorship"];
 function normalizeRecordText(r){
@@ -3632,7 +3646,7 @@ function openEditor(id){
     <div class="grid2">${grid}</div>
     <label class="field"><span>Notes</span><textarea data-k="notes" rows="3">${esc(r.notes||"")}</textarea></label>
     <label class="field"><span>Full text</span><textarea data-k="fullText" rows="10">${esc(r.fullText||"")}</textarea></label>
-    <p class="faint" style="font-size:12px">Source: ${esc(r.sourceFile||"—")}${r.sourceUrl?` · <a href="${esc(r.sourceUrl)}" target="_blank" rel="noopener">view original page ↗</a>`:""}</p>
+    <p class="faint" style="font-size:12px">Source: ${esc(r.sourceFile||"—")}${r.sourceUrl?` · <a href="${esc(sourceViewUrl(r))}" target="_blank" rel="noopener">view original page ↗</a>`:""}</p>
     <div class="cite-box"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);margin-bottom:4px">Citation</div>
       <div class="cite-text" id="citeText">${esc(citationFor(r))}</div>
       <button class="btn small" id="citeCopy" style="margin-top:6px">Copy citation</button></div>`;
@@ -6152,6 +6166,16 @@ const SELF_CHECKS=[
   // The search API measured 35-55s under load; a short timeout reports a working
   // server as an unexplained abort. Never trim this back to the file-download value.
   ["patience: the slow search API gets at least 60s", ()=>CA.JSON_TIMEOUT>=60000],
+  // The scan must open with the word marked: the highlight is the whole reason
+  // to click through to the original page.
+  ["original page: the matched word is handed to the viewer unquoted",
+    ()=>sourceViewUrl({sourceUrl:'https://www.loc.gov/resource/sn1/1900-01-01/ed-1/?sp=2&q=%22whistling%22',
+      matchedTerm:'whistling'})==='https://www.loc.gov/resource/sn1/1900-01-01/ed-1/?sp=2&q=whistling'],
+  ["original page: the page number survives the highlight",
+    ()=>sourceViewUrl({sourceUrl:'https://www.loc.gov/resource/sn1/1900-01-01/ed-1/?sp=7',
+      matchedTerm:'siffleuse'}).includes("sp=7")],
+  ["original page: an imported record's link is left alone",
+    ()=>sourceViewUrl({sourceUrl:'https://example.org/a.pdf'})==='https://example.org/a.pdf'],
   // Re-classifying must be able to REMOVE a stale label, or improving the engine
   // could never repair a library harvested under an older one.
   ["reclassify: an abstention clears an old engine's guess",
