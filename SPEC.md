@@ -184,6 +184,87 @@ patterns across time, place, performer, and theme.
   user-facing prose says *"mentions in digitised newspapers,"* never *"whistling in America."*
   All apparatus state lives under `settings` and rides the existing Export JSON envelope — no `schemaVersion`
   bump, because the record model did not change.
+- **AD-016 (2026-08-25): Classify the passage, not the page — and never fail a fetch silently.**
+  Two defects surfaced in the same harvest session, both of which cost the researcher trust in the tool.
+  **(1) Category scoring read the whole OCR blob.** A Chronicling America "page" is an entire broadsheet —
+  dozens of unrelated articles — so an 1812 military dispatch naming *"Lt Whistler"* was filed under
+  Music/performance on the strength of a theatre advertisement three columns away. Fixed by scoring only a
+  ±`CLASSIFY_CTX` (60) word window around a genuine whistling **anchor** (`whistl*`/`siffleu*`), with a
+  surname guard: capitalised *Whistler* preceded by a rank/courtesy title or a given name is a person's name,
+  not whistling ("the whistler" and "a whistler" remain real anchors). **No anchor ⇒ no verdict** — the record
+  stays *unsure* rather than carrying a confident wrong label, which is the same honesty rule as AD-015: never
+  guess where nothing was measured. Consequence: LoC's search stems, so *whistling* matches the surname
+  *Whistler*; those hits now arrive unlabelled for triage instead of polluting the performance category.
+  *This changed a contract* — `suggestCategory` now answers "what kind of whistling is on this page?" rather
+  than "what is this page about?", so two long-standing self-checks gained a whistling word. Their intent is
+  unchanged and four new cases pin the new behaviour (distant notice cannot vote; `Lt Whistler` is a surname;
+  `the whistler` is still a person; a page with no whistling word gets no verdict).
+  **(2) An exhausted 429 retry ladder returned `undefined`.** `getJSON` fell off the end of its loop when all
+  four attempts were rate-limited, so the caller crashed on `data.results` — outside its own `try` — and the
+  run died with no indication that the Library of Congress was throttling. Every exit from `getJSON` is now an
+  explicit value or `throw`; a throttled exhaustion throws an error carrying `rateLimited` (and `Retry-After`
+  when supplied). A `Retry-After` longer than `RL_WAIT_CAP_S` (30 s) bails on the **first** 429 instead of
+  idling through the ladder — the server has said *come back later*, and minutes spent staring at a stalled
+  progress bar are worse than being told to return; every in-app wait is likewise capped at 30 s.
+  `CA.search` and `CA.fetchText` propagate it, `fetchText` gives up after `RL_GIVE_UP` (8)
+  consecutive 429s rather than grinding hundreds of pages at an 8-second brake, and the pipeline treats it as a
+  **pause, not a crash**: records already fetched are saved, and the closing line invites the user to resume.
+  **Progress must narrate.** Long silences read as a hang, so search reports term *k/n*, page, running total
+  against target and the archive's own match count; both stages count their politeness pauses down out loud;
+  text fetch names the newspaper being read and shows how often LoC has slowed us.
+- **AD-017 (2026-08-25): The classifier was rebuilt for precision — the passage decides, evidence is
+  tiered, and a verdict must be earned.** On a 62-case labelled corpus of period passages the previous
+  classifier (even after AD-016's windowing) scored 22/62 with **32 confident wrong labels**; the rebuild
+  scores 61/62 with **1**, zero abstentions on clean positives, ~3 ms per broadsheet page. What changed and why:
+  1. **Per-window scoring, no pooling.** Each anchor's ±60-token window is scored separately; the old
+     union-join let two unrelated whistle mentions pool votes and let phrases "match" across the splice.
+  2. **The anchor may not vote.** whistl-/siffleu-stem tokens are excluded from word evidence — they occur
+     in every window by construction and had handed person-whistling a free point plus every tie (insertion
+     order). "The wind whistled through the trees" used to be person-whistling; minimal sentences now
+     classify by their real evidence.
+  3. **Tiered evidence.** Distinct single words score 1 (2 within 4 tokens of the anchor; repeats never add,
+     so ALTO hyphenation triplets cannot inflate); phrases score 3; **phrases containing the whistle-word
+     score 5** — "whistling to himself", "locomotive whistle", "wet his whistle" predicate the sound itself,
+     while venue words are only circumstance (this is what lets a newsboy whistling OUTSIDE an opera house
+     beat the opera house). A matched phrase consumes its token span ("opera house" cannot also score
+     opera+house); a phrase that is a strict prefix of another matched phrase yields to it ("blew the
+     whistle", train, yields to "blew the whistle on", idiom).
+  4. **A verdict is earned:** score ≥2 with margin ≥1 over the runner-up, else the window abstains. A dead
+     tie is *unsure* by definition, never insertion order. Base-rate analysis showed a 121-token window of
+     arbitrary newsprint had a 25–40 % chance of producing a confident label under the old score>0 rule.
+  5. **Only the hunted passage may label the page.** If any window contains the record's `matchedTerm`,
+     only such windows may decide; if they abstain the page abstains and the seeded category stands. A rail
+     item elsewhere on the broadsheet can no longer overwrite what a siffleuse search found.
+  6. **Embedded ALL-CAPS headlines (runs of ≥2 caps tokens) cannot vote** — an adjacent column's
+     "GRAND CONCERT" ad was worth 4–5 music points inside any nearby window.
+  7. **Proper-noun Whistler guards widened:** ALL-CAPS forms, more period ranks (serjeant, comdr, brevet…),
+     billing epithets excluded from the given-name test (**"the Champion Whistler of America" is a
+     performer, not a surname** — those were the professor's most valuable records being erased), painter
+     context (etchings/nocturnes/"Whistler's Mother"), and Whistler, Ala. (locative preposition / state
+     abbreviation / "station"). Lowercase "the whistler" is always a real anchor.
+  8. **The evidence lists were audited word-by-word against period usage.** Removed as treacherous: "air",
+     "stage" (stagecoach), "hall" (City Hall), "performance" (of duties), "shot" (hunting/sport), "mill",
+     "signal" (Signal Service = weather bureau), "machine" (sewing-machine ads), "dog" (a man whistles FOR
+     his dog — person), "lark" (a spree), "storm" (of applause), "draught" (ale), "sword" (presentation
+     swords), bare "lips"/"tune". Added: plurals throughout ("bullets whistled" was scoring zero on the
+     dominant war-prose form), the era's compound whistles as 5-point phrases (steam/factory/mill/noon/
+     engine/locomotive/fog whistle), Civil-War ordnance, the whistling species (quail, plover, swans,
+     ducks, marmot, the broken-winded horse "whistler"), vaudeville billing phrases, and the real period
+     idioms ("whistle for his money", "wet HIS whistle", "may go whistle"). "Blow/blew the whistle" moved
+     OUT of the idiom list — before ~1930 it is LITERAL (the engineer blew the whistle); only the "on"
+     form marks the informant sense, which barely exists in 1836–1922.
+  9. **`siffleuse`/`siffleur` now seed and vote music-performance, not person-whistling** — revising the
+     2026-08-20 call recorded in §6. Two independent audits concluded the French term appears in this
+     corpus almost exclusively in theatrical notices; under the old seeding the professor's core
+     performance series stayed empty. Reversible in one line of `TERM_CATEGORY` if Prof. Clark rules
+     otherwise. `whistler`/`whistlers` were REMOVED as seeds: LoC stems the search, so those terms return
+     painters, towns, officers and marmots — seeding them violated the never-guess rule.
+  10. **Upgrade path:** category rules persist as user data, so `upgradeCatRules()` re-seeds stored rules
+     that are order-insensitively identical to a past default set; any user edit still wins.
+  11. **Measurement is in-app:** Settings → About → *Run classifier eval* scores the live classifier
+     against the 62-case corpus (`CLASSIFIER_EVAL`) and reports misfires vs honest abstentions separately;
+     35 self-checks pin every mechanism above. Known accepted miss: a village item where a boy's whistling
+     and the locomotive whistle answering him share one page labels train-machine.
 - **AD-009 (2026-06-22): Bespoke visualizations, no chart/graph library.** Timeline, heatmap, keyword
   clusters, map, and the **relationship graph** are hand-built in SVG/Canvas. Rationale: (1) offline
   guarantee per AD-008, (2) cohesive archival visual identity (brief: avoid generic templated looks),
@@ -276,12 +357,15 @@ then displayed as **Unsure**, which reads as *"the classifier judged this and ga
 fact nothing had been judged at all. After a search run whose *Fetch full text* step was
 interrupted (the Library of Congress rate-limits long runs), an entire library could show
 `UNSURE` end to end. Two changes:
-- **Seed from the search term.** `TERM_CATEGORY` maps *unambiguous* terms to a category —
-  `siffleur`/`siffleuse`/`lady whistler`/`king of whistlers` can only describe a person;
-  `artistic whistling`/`whistling recital` are performance. `CA.search` records the term that
-  matched (`record.matchedTerm`) and seeds the category at creation, so those records are
-  classified **before any OCR text exists**. Ambiguous terms — `whistling` alone could be a
-  train — are deliberately left unclassified rather than guessed.
+- **Seed from the search term.** `TERM_CATEGORY` maps *unambiguous* terms to a category.
+  `CA.search` records the term that matched (`record.matchedTerm`) and seeds the category at
+  creation, so those records are classified **before any OCR text exists**. Ambiguous terms —
+  `whistling` alone could be a train — are deliberately left unclassified rather than guessed.
+  *(Revised by AD-017, 2026-08-25: `siffleur`/`siffleuse` seed **music-performance** — in this
+  corpus the French term names a stage artist; `whistler`/`whistlers` no longer seed at all —
+  LoC's stemmer returns painters, towns, officers and marmots for them; and the unambiguous
+  compound terms — `steam whistle`, `whistling buoy`, `whistling swan`, `champion whistler`,
+  `penny whistle` … — now seed their categories.)*
 - **Stop claiming a verdict that was never reached.** A record with no text now shows a dashed
   **"No text yet"** chip instead of "Unsure" (`needsText()` / `catChip()`); the stored value is
   still `unsure`, so no data model change. *Unsure* is reserved for records that were actually

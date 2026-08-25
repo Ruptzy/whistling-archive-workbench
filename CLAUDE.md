@@ -34,6 +34,31 @@ import, search, annotate, and visualize historical newspaper mentions of whistli
   verdict (`needsText`/`catChip`), and `matchedTerm` survives `CA.recFromResult`. If you touch the
   classifier, chips, term map or text hygiene: run the checks, keep them green, and EXTEND the list —
   never delete cases to make it pass.
+- **Classify the passage, not the page (AD-016/017).** `suggestCategory` scores each whistle anchor's
+  ±`CLASSIFY_CTX`-token window SEPARATELY (a Chronicling America "page" is a whole broadsheet). The
+  mechanisms, all pinned by self-checks: anchor-stem tokens never vote for themselves; distinct words 1 pt
+  (2 near the anchor, repeats never add — OCR triplets); phrases 3 pts, **phrases containing the
+  whistle-word 5 pts** (they predicate the sound itself); a matched phrase consumes its span and yields to
+  a longer matched phrase it prefixes; embedded ALL-CAPS headline runs cannot vote; a verdict needs
+  score ≥`SCORE_MIN` and margin ≥`SCORE_MARGIN`, else honest abstention — ties are *unsure* by definition;
+  if a window contains `matchedTerm`, only such windows may label the page. `whistlerIsProperNoun` guards
+  the surname (titles, given names incl. ALL-CAPS, painter context, Whistler Ala.) while billing epithets
+  ("the Champion Whistler") stay anchors. **No anchor or no earned verdict ⇒ `null`** — an honest Unsure
+  beats a confident wrong label. Tune it as DATA (`DEFAULT_CAT_RULES`, `TERM_CATEGORY`, `NAME_TITLES`,
+  `NAME_STOP`, `ART_CONTEXT`, the constants), not as new branches; changed defaults need a matching entry
+  in `LEGACY_CAT_RULES` so `upgradeCatRules()` re-seeds untouched installs.
+- **Measure before you ship classifier changes.** Settings → About has BOTH *Run self-checks* (35, incl.
+  every AD-017 mechanism) and *Run classifier eval* — 62 labelled period passages (`CLASSIFIER_EVAL`) with
+  misfires reported separately from honest abstentions. Baseline for context: the pre-AD-017 classifier
+  scored 22/62 with 32 misfires; the rebuild scores 61/62 with 1 (a mixed boy-whistler/locomotive page).
+  Extend the eval with every newly discovered failure; never delete cases to make the numbers look better.
+- **No network failure may be silent (AD-016).** `getJSON` ends every path in a value or a `throw` — it once
+  fell off its retry loop and returned `undefined`, so a rate-limited run died on `data.results` with no
+  message. A throttled exhaustion throws `err.rateLimited`; callers must surface that distinctly, `fetchText`
+  breaks out after `RL_GIVE_UP` consecutive 429s instead of grinding, and no in-app wait exceeds
+  `RL_WAIT_CAP_S`. New network loops copy that shape. **Long pauses must narrate** — politeness sleeps count
+  down through `onProgress` and the text stage names the paper it is reading, because a still UI reads as a
+  crash and the user starts guessing.
 - **Text hygiene is enforced at the store, not per-adapter.** `normalizeRecordText()` runs inside
   `Store.add/update/replaceAll`, so harvested text can never keep raw character references
   (`&#x0027;` etc. — they corrupt display *and* search). New adapters get this for free; if you ever

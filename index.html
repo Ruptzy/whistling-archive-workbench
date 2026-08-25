@@ -1584,8 +1584,11 @@
         <p class="hint">A research tool for the history of whistling in newspapers. No data leaves this device except
           AI calls you make yourself.</p>
         <div class="row" style="margin-top:4px"><button class="btn small ghost" id="btnSelfCheck"
-          title="Verify the classification fundamentals still hold">Run self-checks</button></div>
-        <div id="selfCheckOut" style="margin-top:10px"></div></div>
+          title="Verify the classification fundamentals still hold">Run self-checks</button>
+          <button class="btn small ghost" id="btnClassifierEval"
+          title="Score the classifier against a labelled corpus of period newspaper passages">Run classifier eval</button></div>
+        <div id="selfCheckOut" style="margin-top:10px"></div>
+        <div id="classifierEvalOut" style="margin-top:10px"></div></div>
     </section>
   </main>
   <aside class="side-rail" id="sideRail" aria-label="At a glance"></aside>
@@ -1779,15 +1782,68 @@ const Settings = (() => {
     ["warble","warbles","warbled","warbling","warbler"],
     ["pipe","pipes","piped","piping"],
   ];
+  /* Category evidence (AD-017). Audited word-by-word against 1836-1922 usage.
+     Single words are WEAK evidence (1 pt; 2 near the anchor) and must corroborate;
+     multi-word phrases are STRONG (3 pts) and may decide alone. Words removed as
+     treacherous in period prose: "air" (atmosphere), "stage" (stagecoach), "hall"
+     (City Hall), "performance" (of duties), "shot" (hunting/sport), "mill" (grist
+     mills for sale), "signal" (signal victory; Signal Service = weather bureau),
+     "machine" (sewing-machine ads), "dog" (a MAN whistles FOR his dog), "lark"
+     (out on a lark), "storm" (of applause), "draught" (ale), "sword"
+     (presentation swords), "lips"/"tune" (bare; kept as phrases). "blow/blew the
+     whistle" left not-about-sound: before ~1930 it is LITERAL (the engineer blew
+     the whistle) — the informant idiom is an anachronism here; only the "on"
+     form marks it. whistl- and siffleu-stem single words are ignored by the
+     scorer (the anchor may not vote for itself) but phrases containing them are
+     the highest-precision evidence in the corpus. */
   const DEFAULT_CAT_RULES={
-    "person-whistling":["whistled","whistling","whistler","siffleur","siffleuse","lips","pursed","tune","air"],
-    "wind-weather":["wind","gale","storm","breeze","gust","tempest","howling","howled","draught","squall"],
-    "train-machine":["train","locomotive","engine","steam","factory","machine","mill","signal","boiler","siren","kettle"],
-    "bird-animal":["bird","mockingbird","canary","lark","thrush","nightingale","parrot","blackbird","dog","robin"],
-    "music-performance":["concert","recital","stage","hall","opera","orchestra","audience","programme","program","encore","performance","theatre","theater","vaudeville"],
-    "object-sound":["teapot","kettle","whistle-buoy","buoy","pipe-organ"],
-    "motion-violence":["bullet","whizzed","shot","arrow","missile","past his ear","past her ear","sword"],
-    "not-about-sound":["blow the whistle","wet your whistle","clean as a whistle","whistle-stop","blew the whistle"],
+    "person-whistling":["pursed","puckered","boy","boys","lad","lads","girl","girls",
+      "urchin","newsboy","newsboys","sentry","merrily","cheerily","gaily","ragged","blithely",
+      "whistled a tune","whistling a tune","whistled an air","merry tune","lively tune",
+      "began to whistle","gave a low whistle",
+      "pursed his lips","pursed her lips","puckered his lips","whistled to his dog","whistled for his dog",
+      "whistling to himself","whistled to himself","whistling to herself","whistled to herself",
+      "man who whistles","whistles at his work","whistled at his work"],
+    "wind-weather":["wind","winds","gale","gales","breeze","breezes","gust","gusts","squall","squalls",
+      "tempest","blizzard","snow","sleet","eaves","keyhole","chimney",
+      "wind whistled","wind whistling","the gale whistled","whistled through the trees",
+      "whistled through the rigging","whistled through the wires","whistled in the chimney",
+      "whistled through the keyhole","whistled about the eaves","the storm howled","storm of wind"],
+    "train-machine":["locomotive","locomotives","engine","engines","train","trains","railroad","railway",
+      "depot","cars","engineer","engineers","boiler","boilers","steam","steamer","steamboat","factory",
+      "siren","roundhouse","brakes","crossing","packet","roustabout","roustabouts",
+      "steam whistle","factory whistle","mill whistle","noon whistle","engine whistle","locomotive whistle",
+      "whistle of the locomotive","whistle of the engine","the whistle blew","blew the whistle",
+      "whistled for brakes","whistled down brakes","whistled for the crossing","fog whistle",
+      "sound the whistle","sounded the whistle","fire whistle","curfew whistle"],
+    "bird-animal":["bird","birds","mockingbird","mockingbirds","canary","thrush","nightingale","parrot",
+      "blackbird","robin","quail","plover","curlew","swan","swans","duck","ducks","teal","widgeon",
+      "marmot","marmots","woodchuck","covey","bobwhite","bob-white","roarer","gelding","veterinary",
+      "mocking bird","bob white","whistling swan","whistling swans","whistling duck","whistling ducks",
+      "whistling plover","the quail whistled","meadow lark","wind and limb","broken wind","broken-winded"],
+    "music-performance":["siffleur","siffleuse","concert","concerts","recital","recitals","opera",
+      "orchestra","orchestral","audience","accompaniment","solo","solos",
+      "encore","encored","encores","vaudeville","programme","matinee","soloist","footlights",
+      "minstrel","minstrels","musicale","theatre","theater","phonograph","mlle","mme",
+      "whistling solo","whistling recital","whistling act","whistling specialty","artistic whistling",
+      "champion whistler","whistling contest","music hall","opera house","on the programme",
+      "whistling soloist","held the stage","brought down the house","between the acts","whistling coon",
+      "listen to the mocking bird"],
+    "object-sound":["kettle","kettles","teapot","buoy","buoys","whistle-buoy",
+      "whistling buoy","whistle buoy","police whistle","watchman's whistle","penny whistle","tin whistle",
+      "willow whistle","the kettle whistled","tea kettle","blew his whistle","sounded his whistle"],
+    "motion-violence":["bullet","bullets","shell","shells","whizzed","whizzing","arrow","arrows",
+      "missile","missiles","volley","volleys","cannon","musketry","grapeshot","shrapnel",
+      "past his ear","past her ear","past their ears","about his ears","about their ears",
+      "bullets whistled","bullets whistling","shells whistled","shells whistling","ball whistled",
+      "balls whistled","shot and shell","minie ball","minie balls",
+      "whistle overhead","whistled overhead","whistling overhead","high overhead"],
+    "not-about-sound":["blow the whistle on","blew the whistle on","wet your whistle","wet his whistle",
+      "wet her whistle","wet their whistles","wetting his whistle","whet his whistle","whet your whistle",
+      "clean as a whistle","whistle-stop","whistle for his money","whistle for their money",
+      "whistle for his pay","whistle for their wages","whistle for your money","may go whistle",
+      "not worth a whistle","worth a penny whistle","pigs and whistles","dear for his whistle",
+      "may whistle for","may now whistle"],
   };
   const DEFAULT_CLUSTER_RULES={
     weather:["wind","storm","gale","breeze","rain","snow","thunder","gust","squall","tempest"],
@@ -1857,9 +1913,32 @@ const Settings = (() => {
     fetchLog:[], corpusManifests:[], audits:[], baselineCache:{},
     aiEngine:"local", localModel:"Qwen2.5-3B-Instruct-q4f16_1-MLC" };
 
+  // Category rules ship as defaults but persist as user data, so improving the
+  // defaults never reaches an existing install by itself. If the stored rules
+  // are (order-insensitively) identical to a PAST default set, the user never
+  // edited them — re-seed with the current defaults. Any edit at all wins.
+  const LEGACY_CAT_RULES=[{
+    "person-whistling":["whistled","whistling","whistler","siffleur","siffleuse","lips","pursed","tune","air"],
+    "wind-weather":["wind","gale","storm","breeze","gust","tempest","howling","howled","draught","squall"],
+    "train-machine":["train","locomotive","engine","steam","factory","machine","mill","signal","boiler","siren","kettle"],
+    "bird-animal":["bird","mockingbird","canary","lark","thrush","nightingale","parrot","blackbird","dog","robin"],
+    "music-performance":["concert","recital","stage","hall","opera","orchestra","audience","programme","program","encore","performance","theatre","theater","vaudeville"],
+    "object-sound":["teapot","kettle","whistle-buoy","buoy","pipe-organ"],
+    "motion-violence":["bullet","whizzed","shot","arrow","missile","past his ear","past her ear","sword"],
+    "not-about-sound":["blow the whistle","wet your whistle","clean as a whistle","whistle-stop","blew the whistle"],
+  }];
+  const normRules=(m)=>JSON.stringify(Object.keys(m||{}).sort().map(k=>
+    [k,[...(m[k]||[])].map(w=>String(w).trim().toLowerCase()).filter(Boolean).sort()]));
+  function upgradeCatRules(cur){
+    if(!cur) return structuredClone(DEFAULT_CAT_RULES);
+    const n=normRules(cur);
+    if(n===normRules(DEFAULT_CAT_RULES)) return cur;
+    return LEGACY_CAT_RULES.some(l=>normRules(l)===n) ? structuredClone(DEFAULT_CAT_RULES) : cur;
+  }
   function load(){ try{ const r=localStorage.getItem(LS); if(r) state={...state,...JSON.parse(r)};}catch(_){}
     // fold in any new default gazetteer cities on upgrade (user edits still win)
     state.gazetteer={...DEFAULT_GAZETTEER, ...(state.gazetteer||{})};
+    state.categoryRules=upgradeCatRules(state.categoryRules);
     state.searchPresets=mergePresets(state.searchPresets); }
   // Built-in presets are re-seeded on upgrade; the user's own presets are kept.
   function mergePresets(saved){ const mine=(Array.isArray(saved)?saved:[]).filter(p=>p&&!p.builtin&&p.name);
@@ -1868,6 +1947,7 @@ const Settings = (() => {
   function serializable(){ const {apiKey,...rest}=state; return rest; }
   function mergeFromImport(s){ if(!s) return; const {apiKey,...rest}=s; state={...state,...rest};
     state.gazetteer={...DEFAULT_GAZETTEER, ...(state.gazetteer||{})};
+    state.categoryRules=upgradeCatRules(state.categoryRules);
     state.searchPresets=mergePresets(state.searchPresets); save(); }
   const get=(k)=>state[k]; const set=(k,v)=>{ state[k]=v; save(); };
 
@@ -2116,28 +2196,257 @@ async function importFiles(files, onProgress, csvMappings){
 // Some search terms can only describe a person whistling — a page that matched
 // "siffleuse" needs no OCR text to be categorised. Ambiguous terms ("whistling"
 // could be a train) are deliberately left alone until the text arrives.
+/* Seeds for UNAMBIGUOUS search terms only. "whistler"/"whistlers" were removed
+   (AD-017): LoC stems the search, so those terms return the painter James
+   McNeill Whistler, Whistler (Ala.), officers named Whistler, marmots and
+   broken-winded horses — seeding person-whistling there violated the
+   never-guess rule. Modifier forms ("lady whistler") stay: they cannot be a
+   bare surname. The compound machine/object/bird terms seed because the
+   compound itself names the sound source. */
 const TERM_CATEGORY={
-  "siffleur":"person-whistling", "siffleurs":"person-whistling",
-  "siffleuse":"person-whistling", "siffleuses":"person-whistling",
-  "whistler":"person-whistling", "whistlers":"person-whistling",
+  // siffleur/siffleuse moved to music-performance (AD-017): in 1885-1915
+  // American papers the French term appears almost exclusively in theatrical
+  // notices — it names a STAGE ARTIST, which is the music-performance category's
+  // whole purpose. Two independent audits confirmed the professor's core
+  // performance series stayed empty under the person-whistling seeding.
+  "siffleur":"music-performance", "siffleurs":"music-performance",
+  "siffleuse":"music-performance", "siffleuses":"music-performance",
   "lady whistler":"person-whistling", "whistling girl":"person-whistling",
   "whistling girls":"person-whistling", "king of whistlers":"person-whistling",
   "queen of whistlers":"person-whistling", "whistling soloist":"music-performance",
   "artistic whistling":"music-performance", "whistling recital":"music-performance",
   "school of whistling":"music-performance", "whistling solo":"music-performance",
+  "champion whistler":"music-performance", "whistling contest":"music-performance",
+  "whistling specialty":"music-performance",
+  "steam whistle":"train-machine", "factory whistle":"train-machine",
+  "mill whistle":"train-machine", "noon whistle":"train-machine",
+  "locomotive whistle":"train-machine", "engine whistle":"train-machine",
+  "fog whistle":"train-machine",
+  "whistling swan":"bird-animal", "whistling duck":"bird-animal",
+  "whistling plover":"bird-animal",
+  "whistling buoy":"object-sound", "penny whistle":"object-sound",
+  "tin whistle":"object-sound", "police whistle":"object-sound",
 };
 const categoryFromTerm=(t)=>TERM_CATEGORY[String(t||"").trim().toLowerCase()]||null;
 
+/* ------------------------- [CLASSIFIER CORE] -------------------------
+   A Chronicling America "page" is a whole broadsheet: dozens of unrelated
+   articles share one OCR blob, so the classifier judges each whistling ANCHOR's
+   neighbourhood separately and never lets a distant column vote (AD-016/017).
+   Precision beats recall throughout: a wrong label silently corrupts the
+   professor's charts; an honest Unsure costs her one glance in triage.
+   The evidence lists are DATA (Settings > category rules); the scorer is code.
+   Scoring per window: a matched multi-word phrase counts PHRASE_SCORE (phrases
+   are the high-precision signal), a distinct single word counts 1 — or 2 within
+   NEAR_ANCHOR tokens of the anchor ("the locomotive whistle") — and repeats
+   never add (LoC OCR duplicates hyphenated words in triplets). Bare whistl*
+   forms may not vote at all: they appear in every window by construction, which
+   used to hand person-whistling a free point and win it every tie. A verdict
+   needs SCORE_MIN evidence and SCORE_MARGIN daylight over the runner-up;
+   otherwise that window abstains. */
+const CLASSIFY_CTX=60;   // words either side of an anchor that may vote
+const NEAR_ANCHOR=4;     // tokens; evidence this close to the anchor counts double
+const SCORE_MIN=2;         // a verdict needs at least this much evidence…
+const SCORE_MARGIN=1;      // …and this much daylight over the runner-up category
+const PHRASE_SCORE=3;      // a matched phrase outranks any single word
+const PHRASE_ANCHOR_SCORE=5; // …and a phrase CONTAINING the whistle-word outranks
+                             // everything: it predicates the sound itself
+                             // ("whistling to himself", "locomotive whistle"),
+                             // while venue words are only circumstance.
+// The stem tolerates the archive's attested OCR confusions: 1/l for i,
+// f for long-s ("whiftle" in pre-1810s reprints). "wh?ftl"/"wh1stl" collide
+// with no real English words, so the widening costs no precision.
+const ANCHOR_WORD=/^[^\p{L}]*(?:w[hb][i1l][sf]t[l1]|siffleu)/iu;
+// "he whistled" names its own subject: a personal pronoun directly before the
+// anchor is person-whistling evidence the word lists cannot express ("he" is
+// far too common to be a rules word). "it"/"which"/"they" stay out — engines,
+// bullets, shells and birds take those pronouns ("they whistled over us").
+const PERSON_SUBJECT=new Set(["he","she","i","we","who"]);
+const NAME_TITLES=new Set(["lt","lieut","lieutenant","ens","ensign","capt","captain",
+  "col","colonel","gen","general","maj","major","sgt","sergt","serj","serjeant","sergeant",
+  "adm","admiral","pvt","private","corp","corporal","comdr","commander","commodore",
+  "brig","brigadier","brevet","surgeon","paymaster","messrs","doctor","senator","sen","deacon","elder",
+  "lieutcol","lieutgen","majgen","briggen",   // onlyLetters collapses "Lieut-Col" to these
+  "mr","mrs","miss","ms","mme","madam","madame","mlle","mademoiselle","signor","signora","herr","frau",
+  "dr","rev","hon","judge","prof","sir","gov","governor","pres","president","sec","secretary"]);
+// Words before "Whistler" that mark a BILLING or description, never a given name.
+// Vaudeville convention capitalises epithets — "the Champion Whistler of America",
+// "Lady Whistler", "the Boy Whistler" are performers, exactly the records the
+// professor wants; treating the epithet as a first name erased their anchors.
+const NAME_STOP=/^(?:the|a|an|and|of|to|our|that|this|some|every|no|by|in|at|for|but|or|as|is|was|were|when|then|his|her|their|its|one|two|first|last|great|young|old|famous|celebrated|lady|boy|girl|boys|girls|champion|master|little|amateur|human|clever|wonderful|noted|popular|only|original|world|peerless|renowned)$/i;
+// Context that marks a capitalised "Whistler" as the painter or the Alabama
+// town rather than a whistling person. Checked only around SURNAME_FORM tokens.
+const ART_CONTEXT=new Set(["painter","painting","paintings","painted","etching","etchings",
+  "portrait","portraits","gallery","canvas","canvases","exhibition","exhibit","artist",
+  "nocturne","nocturnes","pastels","lithograph","lithographs","engraving","engravings","mother"]);
+const PLACE_CONTEXT=new Set(["ala","alabama"]);
+const SURNAME_FORM=/^(?:Whistlers?|WHISTLERS?)$/;   // never lowercase "whistler"
+const onlyLetters=(s)=>String(s||"").replace(/[^\p{L}]/gu,"");
+// The classifier's own normal form: lowercase, edge punctuation stripped,
+// apostrophes dropped so "watchman's" == "watchman’s" == "watchmans".
+const clBare=(w)=>String(w||"").toLowerCase()
+  .replace(/[‘’']/g,"").replace(/ſ/g,"s")
+  .replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu,"");
+/* "Whistler" is both a surname and the word for a whistling performer. Treat a
+   CAPITALISED Whistler as a proper noun on positive evidence only:
+   - a rank/courtesy title or a capitalised given name (incl. initials) before it,
+   - painter context nearby (etchings, gallery, "Whistler's Mother", …),
+   - the Alabama town ("Whistler, Ala.", "Whistler station").
+   Lowercase "the whistler" is always a real anchor. */
+function whistlerIsProperNoun(toks,i){
+  if(!SURNAME_FORM.test(onlyLetters(toks[i].w))) return false;
+  const prev=onlyLetters((toks[i-1]||{}).w);
+  if(prev){
+    if(NAME_TITLES.has(prev.toLowerCase())) return true;
+    if(/^[A-Z][A-Za-z]*$/.test(prev) && !NAME_STOP.test(prev)) return true;  // given name / initial
+  }
+  const next=clBare((toks[i+1]||{}).w);
+  if(next==="station"||next==="junction") return true;                        // Whistler, Ala. depot
+  // "at Whistler", "from Whistler": a capitalised Whistler after a locative
+  // preposition is the Alabama shop town (or some person), not whistling.
+  if(prev&&/^(?:at|near|from|into|through|of)$/i.test(prev)&&/^[a-z]/.test((toks[i-1]||{}).w||"")) return true;
+  for(let j=Math.max(0,i-2);j<Math.min(toks.length,i+3);j++)
+    if(PLACE_CONTEXT.has(clBare(toks[j].w))) return true;
+  for(let j=Math.max(0,i-12);j<Math.min(toks.length,i+13);j++)
+    if(ART_CONTEXT.has(clBare(toks[j].w))) return true;
+  return false;
+}
+// Rules compiled once per rules object: single words become an O(1) bare-form
+// lookup (no regex per word per record), phrases become token arrays matched by
+// sliding comparison inside a window — a phrase can no longer "match" across
+// two stitched-together windows, and punctuation/apostrophe variants unify.
+let _compiledRules=null;
+function compiledCatRules(){
+  const src=Settings.get("categoryRules");
+  if(_compiledRules && _compiledRules.src===src) return _compiledRules;
+  const wordCats=new Map(), phrases=[];
+  for(const [cat,words] of Object.entries(src||{})){
+    for(const raw of words||[]){
+      const w=String(raw||"").trim().toLowerCase(); if(!w) continue;
+      if(/\s/.test(w)){ const t=w.split(/\s+/).map(clBare).filter(Boolean);
+        if(t.length) phrases.push({cat, toks:t,
+          a:t.some(x=>/^(?:w[hb][i1l][sf]t[l1]|siffleu)/.test(x))}); continue; }
+      if(/^(?:whistl|siffleu)[a-z]*$/.test(w)) continue;  // anchor forms may not vote (self-vote bias);
+                                               // their MEANING votes via TERM_CATEGORY below
+      const b=clBare(w); if(!b) continue;
+      const cur=wordCats.get(b)||[]; if(!cur.includes(cat)) cur.push(cat);
+      wordCats.set(b,cur);
+    }
+  }
+  _compiledRules={src, wordCats, phrases};
+  return _compiledRules;
+}
 function suggestCategory(rec){
-  const text=" "+(rec.fullText||"").toLowerCase()+" ";
-  let best=null, bestN=0;
-  for(const [cat,words] of Object.entries(Settings.get("categoryRules"))){
-    let n=0; for(const w of words){ if(!w) continue;
-      if(w.includes(" ")){ if(text.includes(" "+w+" ")||text.includes(w)) n+=2; }
-      else { const re=new RegExp("\\b"+w.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\b","g");
-        const m=text.match(re); if(m) n+=m.length; } }
-    if(n>bestN){ bestN=n; best=cat; } }
-  return bestN>0?best:null;
+  const text=rec&&rec.fullText; if(!text) return null;
+  const toks=[]; const re=/\S+/g; let m;
+  while((m=re.exec(text))) toks.push({w:m[0]});
+  for(const t of toks) t.b=clBare(t.w);
+  // OCR blobs embed ALL-CAPS headlines of ADJACENT unrelated articles mid-stream;
+  // one "GRAND CONCERT AT MUSIC HALL" inside a window outvotes real context. A run
+  // of two or more consecutive all-caps tokens is a headline: it may still anchor,
+  // but it may not vote.
+  const isCaps=(w)=>{ const L=onlyLetters(w); return L.length>=2 && L===L.toUpperCase(); };
+  for(let i=0;i<toks.length;i++){
+    if(!isCaps(toks[i].w)) continue;
+    let j=i; while(j+1<toks.length && isCaps(toks[j+1].w)) j++;
+    if(j>i) for(let k=i;k<=j;k++) toks[k].hd=true;
+    i=j;
+  }
+  const anchors=[];
+  for(let i=0;i<toks.length;i++){
+    let hit=ANCHOR_WORD.test(toks[i].w);
+    // ALTO sometimes leaves a line-break hyphenation unjoined: "whist-" + "ling".
+    if(!hit && /-$/.test(toks[i].w) && toks[i+1])
+      hit=ANCHOR_WORD.test(toks[i].w.slice(0,-1)+toks[i+1].w);
+    if(!hit) continue;
+    if(whistlerIsProperNoun(toks,i)) continue;
+    anchors.push(i);
+  }
+  if(!anchors.length) return null;             // nothing whistling-related to judge
+  const {wordCats,phrases}=compiledCatRules();
+  const seedCat=categoryFromTerm(rec.matchedTerm);   // the term that found the page is mild prior
+  // The window that CONTAINS the matched search term is the passage the
+  // researcher was actually hunting; on a page with several unrelated whistling
+  // mentions its verdict outranks the others.
+  const mt=String(rec&&rec.matchedTerm||"").split(/\s+/).map(clBare).filter(Boolean);
+  const verdicts=[]; let anyTermWin=false;
+  for(const a of anchors){
+    const from=Math.max(0,a-CLASSIFY_CTX), to=Math.min(toks.length,a+CLASSIFY_CTX+1);
+    let isTermWin=false;
+    if(mt.length){
+      for(let j=from;j+mt.length<=to&&!isTermWin;j++){
+        let ok=true;
+        for(let k=0;k<mt.length;k++) if(toks[j+k].b!==mt[k]){ ok=false; break; }
+        isTermWin=ok;
+      }
+      if(isTermWin) anyTermWin=true;
+    }
+    const score={};
+    // Phrases first: a matched phrase CONSUMES its token span, so its words
+    // cannot also vote singly ("opera house" must not score opera+house+phrase).
+    const matched=[]; const seenPhrase=new Set();
+    for(const p of phrases){
+      const key=p.cat+"|"+p.toks.join(" ");
+      if(seenPhrase.has(key)) continue;
+      for(let j=from;j+p.toks.length<=to;j++){
+        let ok=true, live=false;
+        for(let k=0;k<p.toks.length;k++){
+          if(toks[j+k].b!==p.toks[k]){ ok=false; break; }
+          if(!toks[j+k].hd) live=true;         // a phrase entirely inside a headline may not vote
+        }
+        if(ok&&live){ seenPhrase.add(key); matched.push({p, at:j}); break; }
+      }
+    }
+    // A phrase that is a strict prefix of another matched phrase yields to it:
+    // "blew the whistle" (train) must not tie "blew the whistle on" (idiom).
+    const consumed=new Set();
+    for(const m of matched){
+      const p=m.p;
+      const subsumed=matched.some(q=>q.p!==p && q.p.toks.length>p.toks.length
+        && p.toks.every((t,k)=>q.p.toks[k]===t));
+      if(subsumed) continue;
+      score[p.cat]=(score[p.cat]||0)+(p.a?PHRASE_ANCHOR_SCORE:PHRASE_SCORE);
+      for(let k=0;k<p.toks.length;k++) consumed.add(m.at+k);
+    }
+    const seenWord=new Map();                  // distinct words only; keep the best weight
+    for(let j=from;j<to;j++){
+      const b=toks[j].b;
+      if(!b || toks[j].hd || consumed.has(j) || /^(?:w[hb][i1l][sf]t[l1]|siffleu)/.test(b)) continue;
+      if(!wordCats.has(b)) continue;
+      const w=Math.abs(j-a)<=NEAR_ANCHOR?2:1;
+      if(w>(seenWord.get(b)||0)) seenWord.set(b,w);
+    }
+    for(const [b,w] of seenWord) for(const c of wordCats.get(b)) score[c]=(score[c]||0)+w;
+    // "he whistled" is corroboration, never proof: period papers say "he whistled
+    // for the crossing" of an engineer sounding the ENGINE, and a steamboat is
+    // "she". One point, so it can tip real evidence but not decide alone.
+    if(PERSON_SUBJECT.has(clBare((toks[a-1]||{}).w)))
+      score["person-whistling"]=(score["person-whistling"]||0)+1;
+    // The anchor's own meaning votes through TERM_CATEGORY: "siffleuse" names a
+    // stage artist outright (strong vote). Ambiguous forms — "whistling",
+    // "whistler" (painter/horse/duck/marmot/town) — are not in the map and add
+    // nothing; their category must be earned by context.
+    const sense=TERM_CATEGORY[toks[a].b];
+    if(sense) score[sense]=(score[sense]||0)+(toks[a].b.startsWith("siffleu")?2:1);
+    if(seedCat) score[seedCat]=(score[seedCat]||0)+1;
+    let bestC=null, s1=0, s2=0;
+    for(const c in score){ const s=score[c];
+      if(s>s1){ s2=s1; s1=s; bestC=c; } else if(s>s2) s2=s; }
+    if(bestC && s1>=SCORE_MIN && s1-s2>=SCORE_MARGIN) verdicts.push({cat:bestC, s:s1, term:isTermWin});
+  }
+  // If the passage the search term actually lives in exists on this page, ONLY
+  // it may speak for the page — a verdict from some unrelated whistling mention
+  // elsewhere on the broadsheet must never label the record. If that passage
+  // abstained, the page abstains (any category seeded at creation stands).
+  const pool=anyTermWin?verdicts.filter(v=>v.term):verdicts;
+  if(!pool.length) return null;
+  pool.sort((a,b)=>b.s-a.s);
+  const top=pool[0].s;
+  const atTop=new Set(pool.filter(v=>v.s===top).map(v=>v.cat));
+  if(atTop.size===1) return pool[0].cat;
+  // equal-strength disagreement even among the preferred windows: the seeded
+  // category decides, or nobody does — never a coin flip.
+  return (seedCat&&atTop.has(seedCat))?seedCat:null;
 }
 
 /* ------------------------------ [SEARCH] ---------------------------- */
@@ -2606,7 +2915,15 @@ async function runPipeline(){
       const left=Store.all().filter(r=>(r.lat==null||r.lng==null)&&r.city).length;
       if(left&&!_pipeCancel) archLog(`   ${left} cit${left===1?"y":"ies"} could not be placed — the Map's “Geocode online” can retry them.`);
     } else archLog("5/5 Map places — everything with a city is already placed.");
-  }catch(e){ archLog("⚠ "+e.message); toast("Pipeline stopped: "+e.message,"err"); Geo.stop(); }
+  }catch(e){ Geo.stop();
+    if(e.rateLimited){
+      // Not a crash — a pause. Flagging the pipeline as cancelled makes the
+      // closing line read "stopped, press again to carry on", which is exactly
+      // the truth: every record already fetched is saved and resumable.
+      _pipeCancel=true;
+      archLog("⛔ RATE LIMITED — "+e.message);
+      toast("Rate limited by the Library of Congress — the run paused, nothing lost.","err");
+    } else { archLog("⚠ "+e.message); toast("Pipeline stopped: "+e.message,"err"); } }
   stage=STAGES; setBar(0);
   archBusy(false); $("#archBar").style.width="0%"; updateArchStatus();
   archLog(_pipeCancel ? "■ Stopped. Press “Build my corpus” again to carry on where you left off." : "✔ Done.");
@@ -4789,8 +5106,22 @@ function geofill(){ let n=0; const gaz=Settings.get("gazetteer");
    full text from /storage-services/ (≤150/min), resumable. CORS is open on
    loc.gov so this works with no server (AD-008 seam: a live "source").
 -------------------------------------------------------------------------- */
+/* Rate limiting must never be silent. The Library of Congress throttles by IP,
+   and a big harvest can trip it for minutes, so every caller needs to be able to
+   say "we were throttled" instead of stalling or dying on an unrelated error.
+   `err.rateLimited` is that signal. */
+function rateLimitError(retryAfterSec){
+  const mins=retryAfterSec>0?Math.max(1,Math.ceil(retryAfterSec/60)):0;
+  const e=new Error("The Library of Congress is rate-limiting this connection (HTTP 429). "
+    +"Everything already saved was kept — wait "+(mins?"about "+mins+" min":"a few minutes")
+    +", then press the same button again to resume.");
+  e.rateLimited=true; e.retryAfter=retryAfterSec||0;
+  return e;
+}
 const CA = (()=>{
   const SEARCH="https://www.loc.gov/search/";
+  const RL_GIVE_UP=8;      // consecutive 429s that mean "blocked", not "slow down"
+  const RL_WAIT_CAP_S=30;  // longer than this we hand the wait back to the user
   let cancel=false;
   const sleep=(ms)=>new Promise(r=>setTimeout(r,ms));
   // Politeness floors (pinned by self-checks — speed must never break these):
@@ -4802,14 +5133,36 @@ const CA = (()=>{
     try{ return await fetch(url,{signal:ctl.signal}); } finally{ clearTimeout(tm); } }
   // `stopped` is consulted between attempts so Stop answers within one
   // timeout (<=20s), not after the whole retry ladder (~90s on a dead host).
-  async function getJSON(url, tries=4, stopped){
+  // Every path out of this function is an explicit value or throw. A 429 ladder
+  // that ran out used to fall off the end and return undefined, so the caller
+  // crashed on `data.results` — the run just died with no hint that the Library
+  // of Congress was throttling us. That is the bug behind "it stopped working
+  // and I had no idea I'd hit a limit".
+  async function getJSON(url, tries=4, stopped, onNote){
+    let lastErr=null, saw429=0, retryAfter=0;
     for(let i=0;i<tries;i++){
       if(stopped&&stopped()) throw new Error("stopped");
-      try{ const r=await fetchT(url); if(r.status===429){ await sleep(6000*(i+1)); continue; }
+      try{ const r=await fetchT(url);
+        if(r.status===429){ saw429++;
+          const ra=parseInt(r.headers.get("retry-after")||"",10)||0;
+          if(ra>0) retryAfter=Math.max(retryAfter,ra);
+          // A long Retry-After is the server saying "come back later", not "ease
+          // off". Sitting in the ladder would burn minutes behind a frozen-looking
+          // screen — hand the wait back to the user, who can spend it elsewhere.
+          if(ra>RL_WAIT_CAP_S) throw rateLimitError(ra);
+          if(i===tries-1) break;
+          const wait=Math.min(RL_WAIT_CAP_S*1000, Math.max(6000*(i+1), ra*1000));
+          onNote&&onNote(`⏳ Library of Congress asked us to slow down — waiting ${Math.round(wait/1000)}s (try ${i+2} of ${tries})…`);
+          await sleep(wait); continue; }
         if(!r.ok) throw new Error("HTTP "+r.status); return await r.json(); }
       catch(e){ if(stopped&&stopped()) throw new Error("stopped");
-        if(i===tries-1) throw e; await sleep(2500*(i+1)); }
+        if(e.rateLimited) throw e;   // our own deliberate bail-out, not a transport fault
+        lastErr=e; if(i===tries-1) break;
+        onNote&&onNote(`⚠ ${e.message} — retrying (${i+2} of ${tries})…`);
+        await sleep(2500*(i+1)); }
     }
+    if(saw429) throw rateLimitError(retryAfter);
+    throw lastErr||new Error("no response after "+tries+" attempts");
   }
   // OCR file URL is derivable from the result's image_url (no extra JSON call):
   // the word-coordinates service link carries the exact ALTO segment path.
@@ -4835,28 +5188,42 @@ const CA = (()=>{
   async function search(terms, opts){
     cancel=false; const {startYear,endYear,max,onProgress}=opts;
     const seen=new Set(Store.all().map(r=>r.sourceUrl).filter(Boolean));
-    const created=[];
+    const created=[]; let rateLimited=null, tIdx=0;
     const pageC=Math.min(1000, Math.max(20, max)); // page size scales with target — small fetches stay fast
-    for(const term of terms){ if(cancel||created.length>=max) break;
+    const span=(startYear&&endYear)?` ${startYear}–${endYear}`:"";
+    for(const term of terms){ tIdx++; if(cancel||created.length>=max) break;
       const q=encodeURIComponent('"'+term.replace(/"/g,"")+'"'); let sp=1;
+      const label=`term ${tIdx}/${terms.length} “${term}”${span}`;
       while(!cancel && created.length<max){
         let url=`${SEARCH}?q=${q}&fa=partof:chronicling+america&fo=json&c=${pageC}&sp=${sp}`;
         if(startYear&&endYear) url+=`&dates=${startYear}/${endYear}`;
-        onProgress&&onProgress(`Searching “${term}” — page ${sp}…  (${created.length} new hits)`);
-        let data; try{ data=await getJSON(url, 4, ()=>cancel); }
-        catch(e){ if(!cancel) onProgress&&onProgress(`⚠ ${term}: ${e.message}`); break; }
-        const results=data.results||[];
+        onProgress&&onProgress(`Searching ${label} — page ${sp}…  (${created.length} of ${max} hits so far)`);
+        let data; try{ data=await getJSON(url, 4, ()=>cancel, (n)=>onProgress&&onProgress(`${label}: ${n}`)); }
+        catch(e){ if(cancel) break;
+          onProgress&&onProgress(`⚠ ${term}: ${e.message}`);
+          if(e.rateLimited){ rateLimited=e; cancel=true; }
+          break; }
+        const results=(data&&data.results)||[];
+        const of=data&&data.pagination&&data.pagination.of;
         for(const res of results){ const key=res.url||res.id; if(!key||seen.has(key)) continue;
           seen.add(key); created.push(recFromResult(res, term)); if(created.length>=max) break; }
+        onProgress&&onProgress(`${label} — page ${sp} read: ${created.length} of ${max} hits kept`
+          +(of?`  ·  archive holds ${Number(of).toLocaleString()} matches`:""));
         const next=data.pagination&&data.pagination.next;
         if(!next||!results.length||created.length>=max) break;
-        sp++; await sleep(3500); // ≤ ~17/min, safely under LoC's 20/min JSON limit
+        sp++;
+        // ≤ ~17/min, safely under LoC's 20/min JSON limit — counted down out loud
+        // so a deliberate pause never looks like a frozen screen.
+        for(let s=Math.round(JSON_SPACING/1000); s>0 && !cancel; s--){
+          onProgress&&onProgress(`${label} — pausing ${s}s before page ${sp} (Library of Congress rate limit)…  (${created.length} hits)`);
+          await sleep(1000); }
       }
     }
     if(created.length) Store.add(created);
     // provenance of the corpus: what was asked for, and what came back (AD-015)
     logFetch({ kind:"search", terms:terms.slice(), yearFrom:startYear||null, yearTo:endYear||null,
-      maxRequested:max, found:created.length, stopped:cancel });
+      maxRequested:max, found:created.length, stopped:cancel, rateLimited:!!rateLimited });
+    if(rateLimited) throw rateLimited;   // loud, not silent — the run must not look "finished"
     return created;
   }
   function altoToText(xml){ const m=xml.match(/CONTENT="([^"]*)"/g); if(!m) return "";
@@ -4878,13 +5245,16 @@ const CA = (()=>{
     const all=Store.all().filter(r=>r.provenance==="chronicling-america" && !r.fullText && (r.altoUrl||r.sourceUrl));
     const ready=all.filter(r=>r.altoUrl), backfill=all.filter(r=>!r.altoUrl&&r.sourceUrl);
     let done=0, ok=0, dirty=0, nextStart=0; const t0=Date.now();
+    let streak429=0, throttles=0, blocked=false, nowLabel="";
     const gaz=Settings.get("gazetteer");
-    const say=()=>{ if(!onProgress) return;
+    const say=(note)=>{ if(!onProgress) return;
       const el=(Date.now()-t0)/1000, rate=done/Math.max(1,el);
       const eta=rate>0.05?Math.round((all.length-done)/rate):null;
       onProgress(`Fetching full text ${done} / ${all.length}  (${ok} retrieved`
         +(rate>0.05?` · ${rate.toFixed(1)}/s`:"")
-        +(eta!=null&&done<all.length?` · ~${eta>=90?Math.ceil(eta/60)+" min":eta+"s"} left`:"")+")",
+        +(eta!=null&&done<all.length?` · ~${eta>=90?Math.ceil(eta/60)+" min":eta+"s"} left`:"")+")"
+        +(throttles?`  ·  slowed ${throttles}×`:"")
+        +(note?`  ·  ${note}`:(nowLabel?`  ·  reading ${nowLabel}`:"")),
         all.length?done/all.length:1); };
     const apply=(r,text)=>{ if(!text) return false;
       r.fullText=text; normalizeRecordText(r); if(!r.year) r.year=parseYear(text);
@@ -4892,9 +5262,21 @@ const CA = (()=>{
       const g=gaz[(r.city||"").trim().toLowerCase()]; if(g&&r.lat==null){ r.lat=g.lat; r.lng=g.lng; }
       return true; };
     const one=async(r)=>{
+      nowLabel=(r.newspaper||"page").slice(0,42)+(r.date?`, ${r.date}`:"");
+      say();
       try{ const resp=await fetchT(r.altoUrl);
-        if(resp.status===429){ nextStart=Math.max(nextStart,Date.now()+8000); }  // brake ALL workers
-        else if(resp.ok && apply(r, altoToText(await resp.text()))){ ok++; dirty++; }
+        if(resp.status===429){                                  // brake ALL workers
+          streak429++; throttles++;
+          nextStart=Math.max(nextStart,Date.now()+8000);
+          // A brake is normal; an unbroken run of them means we are blocked, and
+          // grinding through hundreds of pages at 8s each is the "waiting forever
+          // with no idea why" that this guards against.
+          if(streak429>=RL_GIVE_UP){ blocked=true; cancel=true; }
+          say(`⏳ Library of Congress asked us to slow down (${streak429} in a row) — pausing 8s`);
+          return;                                               // still pending, so don't count it done
+        }
+        streak429=0;
+        if(resp.ok && apply(r, altoToText(await resp.text()))){ ok++; dirty++; }
       }catch(_){ /* leave pending; resume later */ }
       done++; say();
       if(dirty>=25){ dirty=0; persist(); Store.notify(); } };
@@ -4910,13 +5292,20 @@ const CA = (()=>{
     await Promise.all(Array.from({length:Math.min(TEXT_POOL,ready.length||1)},worker));
     // older records lack an OCR url; deriving it needs the JSON API (<=20/min), so serial
     for(const r of backfill){ if(cancel) break;
+      nowLabel=(r.newspaper||"page").slice(0,42)+(r.date?`, ${r.date}`:"");
+      say(`older record — looking up its scan location`);
       try{ const jr=await fetchT(resourceJsonUrl(r.sourceUrl)); if(jr.ok) r.altoUrl=altoFromText(await jr.text());
         if(r.altoUrl){ const resp=await fetchT(r.altoUrl);
           if(resp.ok && apply(r, altoToText(await resp.text()))){ ok++; dirty++; } } }
       catch(_){ }
-      done++; say(); await sleep(JSON_SPACING); }
+      done++; say();
+      for(let s=Math.round(JSON_SPACING/1000); s>0 && !cancel; s--){
+        say(`pausing ${s}s (Library of Congress rate limit)`); await sleep(1000); } }
     persist(); Store.notify();
-    if(all.length) logFetch({ kind:"text", attempted:all.length, pagesRetrieved:ok, stopped:cancel });
+    if(all.length) logFetch({ kind:"text", attempted:all.length, pagesRetrieved:ok, stopped:cancel, rateLimited:blocked });
+    if(blocked){ const e=rateLimitError(0);
+      onProgress&&onProgress(`⛔ Stopped — ${e.message}  ${ok} page(s) were saved before that; the rest stay pending.`, 1);
+      throw e; }
     onProgress&&onProgress(`Done — ${ok} page(s) of text retrieved` + (cancel?" (stopped)":"") + `. ${all.length-done} still pending.`, 1);
     return ok;
   }
@@ -5431,6 +5820,99 @@ ${d.refs.length?`<h2>Works Cited</h2>${man?`<p class="cite"><i>Corpus cited as:<
   return { data, html, md, aiDiscussion };
 })();
 
+/* ------------------------- [CLASSIFIER EVAL] -------------------------
+   A labelled corpus of period-authentic passages (positives for all eight
+   categories, surname/idiom/ambiguity traps that must abstain, and boundary
+   cases with their ruling in the id). Settings > About > "Run classifier
+   eval" scores the LIVE suggestCategory against it. A misfire = a confident
+   wrong label (the failure mode this tool must not have); an abstention on a
+   labelled case costs only triage time. Extend this list with every newly
+   discovered failure - never delete cases to make the numbers look better. */
+const CLASSIFIER_EVAL=[
+{"id": "pos-person-errand-boy", "expect": "person-whistling", "text": "One of the errand boys of Chestnut street went by the Ledger office yesterday noon, cap on the back of his head, whistling the new march so blithely that the clerks left their ledgers to listen at the windows."},
+{"id": "pos-person-salem-shopkeeper", "expect": "person-whistling", "text": "A correspondent of the Boston Post relates that an old gentleman of Salem, who has whistled the same three tunes at his shop door every fair morning for forty years, holds that no dyspeptic was ever yet a whistler, and that the man who whistles at his work cheats the doctor of his fee."},
+{"id": "pos-person-noisy-locals", "expect": "person-whistling", "text": "CITY AND VICINITY the ice on the canal is reported seven inches thick Mr J B Haines has sold his gray team to parties in Easton for $300 a lad employed at Kresge's grocery went whis whistling - tling whistling past the post office yesterday with a basket on his arm whistling Marching Through Georgia so loud and clear that half the street stopped to hear him the boy says he learned the air from his father who whist1ed it all through the late war eggs are 22 cents butter firm at 26 the Ladies Aid meets Thursday at the parsonage"},
+{"id": "pos-wind-dakota-blizzard", "expect": "wind-weather", "text": "All Thursday night the wind whistled and screamed about the corners of the claim shanties, and when day broke the thermometer at the land office marked twenty-eight degrees below zero, with the snow drifted level with the eaves."},
+{"id": "pos-wind-gale-marine-column", "expect": "wind-weather", "text": "MARINE INTELLIGENCE. Arrived, brig Ellen Maria, Matanzas, molasses, to Loring & Co.; schr Sarah Jane, Machias, lumber, to master. The Ellen Maria reports heavy weather off Hatteras on the 11th, the gale whistling through her rigging for thirty hours together, during which she lost a portion of her deck load and split her foretopsail. Sailed, ship Golden Fleece, Liverpool, with a full freight of cotton. Freights remain dull, and tonnage is offering freely at last week's rates. The schr Comet, hence for Bangor, put back leaking and will discharge for repairs."},
+{"id": "pos-wind-noisy-storm", "expect": "wind-weather", "text": "THE STORM the gale of Friday night was the severest known here in many years all night the wind whistled about the gables and down the chim chimneys - neys chimneys of the houses on Main ftreet rattling the fhutters and heaping the snow in great drifts acrofs the turnpike the mercury flood at ten below zero at seven o'clock Saturday morning feveral panes of glafs were blown in at the Baptift church and the old elm before the courthouse loft a large limb"},
+{"id": "pos-train-amoskeag-noon", "expect": "train-machine", "text": "The noon whistle of the Amoskeag mills blew three minutes late on Tuesday, and half the dinner pails in ward four were opened by guess, to the great scandal of the operatives' watches."},
+{"id": "pos-train-crossing-runaway", "expect": "train-machine", "text": "The engineer of the west-bound express whistled long and loud for the Plainfield crossing on Saturday evening, but the team of young horses driven by Mr. Enos Slater took fright at the sound and ran, throwing Mr. Slater from his wagon and breaking his arm above the wrist. The railroad company's claim agent was in town Monday."},
+{"id": "pos-train-noisy-railroad-notes", "expect": "train-machine", "text": "RAILROAD NOTES the new time card takes effect Sunday the pay car passed over this division Tuesday engineer M P Doyle says the new loco locomotive - motive locomotive whistles can be heard four miles down the valley on a still morning the whistle at the roundhoufe now blows at twelve sharp instead of ten minutes paft the shops will run full time all winter freight receipts at this station show a handfome gain over laft November"},
+{"id": "pos-bird-bobwhite-farm", "expect": "bird-animal", "text": "Farmers in this vicinity say they never heard so many quail as this spring; from every fence post along the bottom lands the cock bob-white whistles his own name from daylight until the dew is off the clover, and the boys are forbidden the gun until fall."},
+{"id": "pos-animal-marmot-whistler", "expect": "bird-animal", "text": "High above timber line the tourist in Glacier Park makes the acquaintance of the whistler, a fat gray marmot that sits upright upon a rock and whistles so shrill an alarm at the sight of a man that the whole slope answers him, den by den, until the last of his tribe has tumbled underground."},
+{"id": "pos-bird-swans-noisy-bay", "expect": "bird-animal", "text": "SPORT ALONG THE BAY gunners at Havre de Grace report the beft season in ten years great rafts of canvas canvasback - back canvasback ride off the flats and on Tuesday a flock of whistling swans came over the blinds fo low that the beat of their wings could be plainly heard the swan whiftles as it flies a clear note that carries a full mile acrofs the water old baymen say the whistlers have come earlier this fall than any year fince the war"},
+{"id": "pos-music-siffleuse-festival", "expect": "music-performance", "text": "Mme. Estelle Verne, the celebrated siffleuse, has been engaged for the May festival, and will whistle the Jewel Song with full orchestral accompaniment, a novelty never before offered to a Toledo audience."},
+{"id": "pos-music-society-solo", "expect": "music-performance", "text": "At the Wednesday musicale of the Fortnightly Club Mrs. C. R. Bowen's whistling solo, 'To a Wild Rose,' was twice encored, and the programme closed with a chorus from Pinafore by the younger members."},
+{"id": "pos-music-noisy-bijou", "expect": "music-performance", "text": "AT THE BIJOU the bill for the present week is the ftrongeft of the season Mlle Irene Dupont the Parisian siffleuse gave her first per performance - formance performance Monday evening whistling Liften to the Mocking Bird with trills that brought the houfe to its feet she anfwered two encores and the management announces a special matinee Saturday afternoon prices as ufual ten twenty and thirty cents"},
+{"id": "pos-object-whistling-buoy", "expect": "object-sound", "text": "The Lighthouse Board gives notice that a whistling buoy, painted red and numbered 2, has been moored in eleven fathoms of water off Point Judith, and mariners are cautioned that the spar buoy heretofore marking the station has been discontinued."},
+{"id": "pos-object-kettle-hob", "expect": "object-sound", "text": "There is no homelier comfort, says an exchange, than the kettle whistling on the hob of a winter evening, while the bread toasts on the fork and the cat winks at the fire; the man who does not love that sound was born to eat cold suppers."},
+{"id": "pos-object-teakettle-ad", "expect": "object-sound", "text": "NEW! The Whistling Tea Kettle fills through the spout and whistles of itself the moment the water boils, so that no housewife need ever again scorch a kettle dry while she tends the baby. Pure aluminum, $1.19 this week only at Hardin's Hardware, 214 Main street."},
+{"id": "pos-motion-minie-balls", "expect": "motion-violence", "text": "Our correspondent before Richmond writes that the minie balls whistled over the rifle pits all the forenoon of Wednesday, and that the men lay close in the trenches, few caring to show so much as a cap above the works until the sharpshooters tired of their sport."},
+{"id": "pos-motion-shells-france", "expect": "motion-violence", "text": "Sergt. Harry L. Peck, writing to his mother in this city from somewhere in France, says a man soon learns to tell by the sound which shells are meant for him; those that whistle high overhead trouble nobody, he writes, and the boys go on with their coffee, but the one you do not hear at all is the one that finds you."},
+{"id": "pos-motion-noisy-frontier", "expect": "motion-violence", "text": "FROM THE FRONTIER a party of surveyors was attacked twelve miles weft of Fort Wallace on Thursday laft the arrows whis whistled - tled whistled about their heads and one chainman was ftruck in the shoulder the escort returned the fire and the war party drew off toward the river the mail rider came in fafely Friday night and reports the road quiet beyond the crofsing"},
+{"id": "pos-idiom-whistle-for-money", "expect": "not-about-sound", "text": "The creditors of the late firm of Boggs & Tyler have attached the stock in trade, but as the senior partner is understood to have crossed into Canada with the books, it is thought the smaller claimants may whistle for their money."},
+{"id": "pos-idiom-wet-his-whistle", "expect": "not-about-sound", "text": "The saloon keeper's plea that a laboring man must now and then wet his whistle was ill received by Judge Cady, who observed that too many whistles were wetted in this town at the expense of wives and children, and assessed the full penalty of fifty dollars and costs."},
+{"id": "pos-idiom-clean-as-whistle", "expect": "not-about-sound", "text": "Burglars entered Munson's jewelry store by the alley window some time Sunday night and swept the trays of rings and watches as clean as a whistle, leaving not so much as a sleeve button; the safe was not disturbed, and the officers have as yet no clue."},
+{"id": "bnd-siffleuse-recital", "expect": "music-performance", "text": "Mme. Alice Shaw, the celebrated siffleuse, gave the second of her recitals at Chickering Hall last evening before a numerous and fashionable audience. Her whistling of the Venzano waltz and of variations upon 'Listen to the Mocking Bird' was rewarded with repeated encores, and the programme was interspersed with piano numbers by Miss Fanny Shaw. The purity and compass of Mme. Shaw's notes have been the wonder of two continents, and it may fairly be said that the art of the siffleuse has never reached so high a perfection in this city."},
+{"id": "bnd-vaudeville-whistling-act", "expect": "music-performance", "text": "KEITHS NEW BILL the bill at Keiths union square theatre this week is of un usual excellence Miss Belle Chester the whist ling whistling soloist whose imitations of the mock ing bird and the canary brought down the house at every performance holds the stage a full twenty min utes the audience demanding encore upon encore while the orchestra accompanies her in selections from Il Trovatore the remainder of the pro gramme includes the Zanfretta troupe of acro bats a comic sketch and the vitagraph pictures prices as usual matinee daily"},
+{"id": "bnd-benefit-whistling-solo", "expect": "music-performance", "text": "The entertainment given at Union Hall Friday evening for the benefit of the library fund netted the handsome sum of thirty-one dollars. The programme was as follows: Piano duet, Misses Carter and Bell; recitation, 'The Polish Boy,' Miss Susie Hart; whistling solo, 'Annie Laurie,' Miss Effie Marsh, who responded to a hearty encore; tableau, 'The Old Oaken Bucket.' Ice cream and cake were served in the vestry, and the committee desire to thank all who assisted."},
+{"id": "bnd-newsboy-at-opera-house", "expect": "person-whistling", "text": "The Grand Opera House was crowded last evening for the first concert of the Philharmonic season, and the carriages stood three deep in Fourth street. While the orchestra within was at work upon the overture, a ragged newsboy sat upon the gallery steps without, whistling to himself and beating time upon the stone with his heels, as unconcerned as though the great hall, the audience, and the whole solemn programme had been got up for his particular amusement. A policeman moved him on before the intermission, and the small critic departed still whistling."},
+{"id": "bnd-whistled-yankee-doodle", "expect": "person-whistling", "text": "When the veterans formed before the court house yesterday morning the band struck up a quickstep, but old Mr. Peabody, falling in behind the colors, whistled 'Yankee Doodle' as he marched, as loud and as clear, the boys say, as he whistled it going up the pike to Gettysburg. The tune carried above the drums, and more than one gray head along the sidewalk took it up before the column reached the cemetery gate."},
+{"id": "bnd-mill-boy-whistler", "expect": "person-whistling", "text": "OUR VILLAGE BUDGET the woolen mill started on full time Monday and the six oclock accommodation now stops at the lower depot every village they say has its whistler and ours is young Tom Haskins who passes down Main street each morn ing on his way to the mill whistling whist ling as he goes his notes may be heard above the rumble of the train and the clatter of the mill machinery itself and the engineer of the morning freight has learned it is said to answer the boy with two short toots of the loco motive whistle Mrs Haskins tells a neighbor that Tom whistled before he could fairly talk and will whistle they suppose at his own funeral the second cutting of hay is about finished the roads are dusty and the new signal tower at the crossing is nearly done"},
+{"id": "bnd-noon-whistle", "expect": "train-machine", "text": "SCALDED AT THE MILLS \u2014 The noon whistle at the Amoskeag mills had scarcely sounded Tuesday, and the hands were taking up their dinner pails, when a steam pipe in the dye house let go with a report heard across the yard. Michael Hearn, a pipe fitter, was badly scalded about the arms and face, but the engineer on duty is praised on all sides for the coolness of his performance in drawing the fires. The great whistle, which governs the dinner hour of half the city, was itself unharmed, and blew the one o'clock call as usual."},
+{"id": "bnd-steamboat-whistle", "expect": "train-machine", "text": "The packet Belle of Memphis came round the point at dusk Thursday and blew three long whistles for the landing, the signal that she would take on freight. The roustabouts had her wooded and loaded by nine o'clock, and she backed out with a single short whistle, her band playing on the boiler deck as she straightened away for the run down to Vicksburg. Old rivermen say her whistle can be told from that of any boat on the river, being deep and soft as an organ pipe."},
+{"id": "bnd-whistling-buoy", "expect": "object-sound", "text": "AIDS TO NAVIGATION \u2014 The Lighthouse Board gives notice that a whistling buoy has been established off Pollock Rip shoal in place of the spar buoy formerly maintained there. The buoy is of the Courtenay pattern, painted red, and carries no light; it is sounded by the motion of the sea alone, the rise and fall of the waves compressing the air within its tube, so that the whistle blows loudest in the heavy weather when it is most needed, and requires neither keeper, coal, nor steam. Masters of coasting vessels and of the Sound steamers are desired to give it a berth of a quarter of a mile. In thick weather its moaning may be heard, it is said, five miles down the wind, and fishermen already complain that the doleful sound murders sleep in the cottages along the shore."},
+{"id": "bnd-police-whistle", "expect": "object-sound", "text": "Officer Duffy, set upon by three of the Mott street gang at midnight, got his back to a shutter and blew his whistle till the call was answered from two directions, Officers Kane and Muldoon coming up at a run. The ruffians showed knives, and one flung a paving stone that whizzed past the officer's ear and shattered a pane behind him, but all three were clubbed into submission and locked up. The magistrate commended Duffy, remarking that a stout whistle had saved better men than the prisoners before him."},
+{"id": "bnd-whistling-swan", "expect": "bird-animal", "text": "Gunners along the bay report whistling swans in greater numbers than for twenty years past. Mr. Sile Latham shot two of the great white birds off Cedar point Tuesday, and the broadbills and whistler ducks are trading up and down the flats every morning at daybreak. The swans pass high, and it is the whistling of their wings, heard long before the flock can be seen, that gives the bird its name among the baymen. Punt gunners are reminded that the swan is protected in this state after the first day of March."},
+{"id": "bnd-horse-whistler", "expect": "bird-animal", "text": "At the horse sale at Given's stables Saturday the bay gelding consigned by Mr. Crane was returned to his owner, the veterinary pronouncing him a whistler. The infirmity of his wind could be heard a rod off when he was put to the trot, though in all other points he is a likely animal and showed well in harness. Buyers cannot be too careful at these sales; a dose of ginger will hide a whistler for the length of an afternoon, but a mile behind a loaded wagon will tell the story."},
+{"id": "bnd-penny-whistle-toy", "expect": "object-sound", "text": "The Christmas tree at the Mission chapel bore fruit for every child of the neighborhood, each lad receiving an orange, a pair of mittens, and a tin whistle, and each girl a doll dressed by the ladies of the sewing circle. The din of two hundred penny whistles, all going at once as the school marched out into Water street, is described by those who heard it as beyond anything in the history of the Sunday school, and Deacon Ford has since offered a prize of one cent for every whistle voluntarily surrendered before New Year's."},
+{"id": "bnd-penny-whistle-idiom", "expect": "not-about-sound", "text": "The affairs of the Consolidated Copper company are in chancery at last, and the small stockholders, having paid their assessments to the bitter end, may now whistle for their dividends. A director who sold out in the spring is quoted as saying that the whole property, hoist, dumps, and charter together, is not worth a penny whistle, and that every dollar sunk below the second level is as clean gone as though it had been dropped into the sea."},
+{"id": "bnd-hunting-bullets", "expect": "motion-violence", "text": "A PANTHER IN THE BEECH WOODS \u2014 Uncle Billy Ross had the adventure of his seventy years Thursday in the woods back of his clearing. A panther, the first seen in this county since 1858, had treed his dog, and the old man's first ball whistled past the brute's head and buried itself in a limb; the second, as the creature flattened for its spring, took it fair behind the shoulder, and it came down dead almost upon the dog. The skin measures eight feet from tip to tip and will be shown at Harmon's store on Saturday."},
+{"id": "bnd-battle-shells", "expect": "motion-violence", "text": "THE BOMBARDMENT OF THE CITY the enemys batteries opened at day break and until noon the shells whistled over the lower town without ceafing the inhabitants finking into the cellars and the garrison making no reply the fhot fell chiefly about the arsenal one shell burfting in the market place killed a mule and wounded two negroes the fleet is reported below the bar and heavy firing was heard toward the fort at n1ghtfall"},
+{"id": "bnd-gale-rigging", "expect": "wind-weather", "text": "The steamer Aleppo, in Tuesday from Liverpool, reports the heaviest weather of her master's long experience. For two days the gale whistled through the rigging with a violence that made orders inaudible upon the deck, the seas boarding her forward and starting the deckload, while the wind at its worst blew the tops from the seas in a level drift like smoke. Her engines were slowed to half speed for thirty hours, and she came into port with two boats stove and her whistle, oddly enough, carried clean away by a sea."},
+{"id": "bnd-prairie-blizzard", "expect": "wind-weather", "text": "THE STORM IN DAKOTA further particulars of the great storm come in slowly the wind whistled and howled about the claim shanties for three days to gether with the mercury at thirty below and the air so thick with driven snow that a man could not see his own barn door settlers tell of hearing the whistle whist le of the wind in the stovepipe like a liv ing thing all night long Mr Olson of Camp township lost his way between the house and the stable and was found froze n but will recover the trains on the Milwaukee road are aban doned the plows being helpless in the cuts and the operator at Ipswich says no whistle of a loco motive has been heard on the division since Tuesday relief parties from Aberdeen have carried coal and provisions to the out lying families and no further loss of life is re ported"},
+{"id": "neg-surname-officer-battle", "expect": "unsure", "text": "FROM THE ARMY OF OCCUPATION \u2014 Advices from the Rio Grande state that the works opposite Matamoras were briskly cannonaded on Thursday laft. Lieut. Whistler of the Fourth Infantry was slightly wounded in the shoulder by a fragment of shell, and Capt. Whistler, his kinsman, commanded the battery which replied with spirit until the enemy retired at nightfall. AMUSEMENTS. The National Theatre announces a grand concert this evening, the orchestra under Herr Steyermann, with a full programme and, it is hoped, a crowded hall."},
+{"id": "neg-surname-painter-gallery", "expect": "unsure", "text": "THE FINE ARTS. The etchings of Mr. Whistler, lately shown in London, are now on view at the rooms of the Grolier Club. The delicacy of the Thames plates is much remarked, and the nocturnes in black and gold have divided the critics as sharply here as abroad. James McNeill Whistler has, it is said, quarrelled with yet another patron, and the wits of Bond street are the richer for it."},
+{"id": "neg-surname-whistlers-mother", "expect": "unsure", "text": "PARIS LETTER. The French government has purchased for the Luxembourg the portrait of the artist's mother which the world knows as Whistler's Mother, an arrangement in grey and black much praised at the Salon. The price is said to have been trifling, and American collectors are left to reflect that the canvas might have been had for a song ten years since."},
+{"id": "neg-surname-initials", "expect": "unsure", "text": "ART NOTES. J. M. Whistler has sent to the Society of British Artists a small marine, together with two pastels of Venice. Those who recall the famous Peacock Room will find the new work slighter, but the touch is the master's own. It is understood that Mr. Whistler asks two hundred guineas for the marine."},
+{"id": "neg-surname-allcaps", "expect": "unsure", "text": "WHISTLER EXHIBIT OPENS. The memorial exhibit of paintings and etchings by the late American master opened yesterday in Memorial Hall before a throng of connoisseurs. The Thames etchings and the Venice pastels are hung in the west gallery, and the loan collection includes several nocturnes never before seen in this city."},
+{"id": "neg-surname-alabama", "expect": "unsure", "text": "MOBILE AND OHIO TIME TABLE. The morning accommodation train leaves Mobile at 6.45, stopping at Whistler, Spring Hill and Citronelle. The new car shops at Whistler, Ala., employ above two hundred men, and the freight train makes up there nightly."},
+{"id": "neg-ambig-he-whistled", "expect": "unsure", "text": "The half-past six was already showing her lamp at the curve when he whistled twice, long and loud, and the men at work upon the ties stood back from the rails to let her pass."},
+{"id": "neg-ambig-no-rule-words", "expect": "unsure", "text": "The night watchman at the cotton press reports that he heard whistling near the lower wharves about midnight on three several occasions this week, but on going down with his lantern could difcover nothing amiss, and the mystery is the talk of the neighborhood."},
+{"id": "neg-ambig-between-ads", "expect": "unsure", "text": "FOR SALE cheap for cash a good family horse kind in harness apply at this office WANTED a smart active boy about fourteen to learn the printing trade whist whistling - ing whistling MRS PARKERS select school for young ladies will reopen September 3 terms moderate pianoforte extra"},
+{"id": "neg-ambig-bare-noun", "expect": "unsure", "text": "Shortly after eleven o'clock a whistle was heard from the direction of the river, repeated at intervals of a minute or more, and the men upon the levee paused to listen; but nothing further came of it, and by midnight the town was quiet again."},
+{"id": "neg-ambig-unknown-source", "expect": "unsure", "text": "Twice in the night something whistled in the pines beyond the graveyard, a thin unearthly note, and the dogs would not be still. Some say one thing and some another, and the older folk shake their heads and will not talk of it at all."},
+{"id": "neg-ambig-city-din", "expect": "unsure", "text": "He had come up from the country in April, and the whistling and clangor of the great city kept him from his sleep, so that he shortly gave up his clerkship and went home again to his father's farm, a wiser man."},
+{"id": "adv-distractor-storm-column", "expect": "person-whistling", "text": "The lad went whistling a lively tune down the Ridge road Tuesday evening, swinging his dinner pail, and so passed out of sight of the Widow Marsh, who was the last to see him before the freshet. THE STORM. The gale which set in that night blew with great fury along the coast, the wind reaching sixty miles an hour; a gust unroofed the Odd Fellows barn and the storm did great damage among the shipping."},
+{"id": "adv-distractor-theatre-column", "expect": "wind-weather", "text": "All Friday night the wind whistled and howled in the rigging of the vessels wind-bound below the bar, and the gale did not slacken till morning. AMUSEMENTS. The Academy announces a grand concert this evening; the orchestra will occupy the stage at eight, and the hall will no doubt be crowded, an encore being certain for Mme. Alboni."},
+{"id": "adv-distractor-shipping-steam", "expect": "object-sound", "text": "MARINE NEWS. The new whistling buoy off Sand Island was heard plainly in the harbor all Sunday night. Arrived: bark Elvira, from Rio; brig Water Witch, in ballast. The tug Hercules got up steam at daylight and went below with the pilots; the revenue cutter is coaling, her engine having been overhauled at the yard, and steam is kept on the ways day and night."},
+{"id": "adv-distractor-chopped-fragment", "expect": "unsure", "text": "her sister testified that on the evening in queftion she heard whistling near the gate but could not say from what quarter it came for at that moment the OPERA HOUSE Il Trovatore tonight full orchestra and chorus popular prices the sale of seats now open at the box office secure them early and avoid the rush"},
+{"id": "neg-idiom-blow-whistle", "expect": "not-about-sound", "text": "It is high time some honest man in the comptroller's office blew the whistle on the paving ring, whose bills against the city hall have doubled in two years while the streets are worse than ever. The Herald is prepared to name names whenever the grand jury will hear them."},
+{"id": "neg-idiom-wet-whistle", "expect": "not-about-sound", "text": "STOP AT THE PALACE SAMPLE ROOM, Main street, opposite the depot, and wet your whistle with the choicest wines, liquors and cigars; free lunch from eleven to one, and a concert every Saturday evening. Give us a call. HENRY GROSS, Proprietor."},
+{"id": "neg-idiom-whistle-for-money", "expect": "not-about-sound", "text": "NOTICE. The copartnership heretofore existing under the style of Blodgett & Nye is this day dissolved by mutual consent. All persons indebted to the late firm are requested to settle before the first of March; those neglecting this notice may whistle for their money, as the books will then pass into the hands of an attorney."},
+{"id": "neg-idiom-clean-as-whistle", "expect": "not-about-sound", "text": "The burglars who visited Odell's store Tuesday night made a clean sweep of it; the till was emptied and the shelves stripped clean as a whistle, and though Marshal Beebe fired one shot at a figure running toward the creek, no arrest has been made."}
+];
+function runClassifierEval(show){
+  const rows=CLASSIFIER_EVAL.map(c=>{ const got=suggestCategory({fullText:c.text})||"unsure";
+    const ok=got===c.expect;
+    const misfire=!ok && got!=="unsure";              // confidently wrong
+    const abstained=!ok && got==="unsure";            // honest miss
+    return {id:c.id, expect:c.expect, got, ok, misfire, abstained}; });
+  const n=rows.length, okN=rows.filter(r=>r.ok).length,
+        mis=rows.filter(r=>r.misfire), abst=rows.filter(r=>r.abstained);
+  const out={ total:n, correct:okN, misfires:mis.length, abstained:abst.length,
+    accuracy:Math.round(100*okN/n),
+    misfireList:mis.map(r=>r.id+": expected "+r.expect+", got "+r.got),
+    abstainedList:abst.map(r=>r.id+": expected "+r.expect) };
+  const el=$("#classifierEvalOut");
+  if(show&&el){ el.innerHTML=`<p class="hint">${okN} of ${n} correct (${out.accuracy}%) - `
+      +`<b>${mis.length} misfire(s)</b>, ${abst.length} honest abstention(s).</p>`
+      +(mis.length?`<p class="hint">Misfires:</p><ul class="hint">`+mis.map(r=>`<li>${esc(r.id)}: expected ${esc(r.expect)}, got ${esc(r.got)}</li>`).join("")+`</ul>`:"")
+      +(abst.length?`<details class="hint"><summary>Abstained (${abst.length})</summary><ul>`+abst.map(r=>`<li>${esc(r.id)}: expected ${esc(r.expect)}</li>`).join("")+`</ul></details>`:"");
+    toast(mis.length?`Classifier eval: ${mis.length} misfire(s).`:`Classifier eval clean - ${okN}/${n}.`, mis.length?"err":"ok"); }
+  return out;
+}
+
 /* ---------------------------- [SELF-CHECK] --------------------------
    Classification is a load-bearing feature: records seed a category from the
    search term that found them, "No text yet" is distinct from a real Unsure
@@ -5442,16 +5924,60 @@ ${d.refs.length?`<h2>Works Cited</h2>${man?`<p class="cite"><i>Corpus cited as:<
 -------------------------------------------------------------------------- */
 const SELF_CHECKS=[
   ["classifier: person text", ()=>suggestCategory({fullText:"He whistled a merry tune through pursed lips."})==="person-whistling"],
-  ["classifier: performance text", ()=>suggestCategory({fullText:"A grand concert at the opera hall drew a large audience."})==="music-performance"],
-  ["classifier: train text", ()=>suggestCategory({fullText:"The locomotive engine hissed steam along the railway."})==="train-machine"],
+  // These two gained a whistling word on 2026-08-25 (AD-016): a category now
+  // describes the whistling ON the page, so the scorer needs something to anchor
+  // to. The intent of each case is unchanged.
+  ["classifier: performance text", ()=>suggestCategory({fullText:"A whistling recital at the opera hall drew a large audience to the concert stage."})==="music-performance"],
+  ["classifier: train text", ()=>suggestCategory({fullText:"The locomotive whistle shrieked as the engine hissed steam along the railway."})==="train-machine"],
   ["classifier: empty text gives no verdict", ()=>suggestCategory({fullText:""})===null && suggestCategory({})===null],
-  ["terms: siffleuse can only be a person", ()=>categoryFromTerm("siffleuse")==="person-whistling"],
+  // A Chronicling America page is a whole broadsheet, so only the neighbourhood
+  // of a real whistling word may vote — otherwise an unrelated column decides.
+  ["classifier: a page with no whistling word gives no verdict",
+    ()=>suggestCategory({fullText:"A grand concert at the opera hall drew a large audience."})===null],
+  ["classifier: a distant theatre notice cannot vote",
+    ()=>suggestCategory({fullText:"The sentry pursed his lips and whistled twice to the picket line at dawn. "+"word ".repeat(400)
+        +"THE THEATRE a celebrated tragedy with grand chorus, a full orchestra and an encore before a large audience."})==="person-whistling"],
+  ["classifier: 'Lt Whistler' is a surname, not whistling",
+    ()=>suggestCategory({fullText:"Lieut Col Miller assigned commands to capt Baker and Lt Whistler, and ensign Whistler "
+        +"of the 17th was wounded. THE THEATRE a grand chorus and a celebrated performance before a large audience at the opera hall."})===null],
+  ["classifier: 'James McNeill Whistler' is the painter, not whistling",
+    ()=>suggestCategory({fullText:"An etching by James McNeill Whistler was shown at the gallery, near the concert hall and opera stage."})===null],
+  // AD-017 invariants: precision machinery that must not regress.
+  ["classifier: a dead tie abstains, never a coin flip",
+    ()=>suggestCategory({fullText:"engine kettle whistle"})===null],
+  ["classifier: minimal wind sentence is wind",
+    ()=>suggestCategory({fullText:"The wind whistled through the trees."})==="wind-weather"],
+  ["classifier: the kettle is an object, not a locomotive",
+    ()=>suggestCategory({fullText:"The kettle whistled merrily on the hob."})==="object-sound"],
+  ["classifier: the engineer blew the whistle is the train, not the idiom",
+    ()=>suggestCategory({fullText:"The engineer blew the whistle as the train neared the crossing."})==="train-machine"],
+  ["classifier: blowing the whistle ON a ring is the idiom",
+    ()=>suggestCategory({fullText:"Some honest man blew the whistle on the paving ring at last."})==="not-about-sound"],
+  ["classifier: war prose is plural — bullets whistled",
+    ()=>suggestCategory({fullText:"The bullets whistled about their ears as the column advanced."})==="motion-violence"],
+  ["classifier: ALL-CAPS WHISTLER with painter context is not an anchor",
+    ()=>suggestCategory({fullText:"WHISTLER MEMORIAL EXHIBITION the paintings and etchings of the master were hung in the gallery."})===null],
+  ["classifier: Whistler, Ala. is a place, not a sound",
+    ()=>suggestCategory({fullText:"The accommodation train stops at Whistler, Ala., where the car shops employ two hundred men."})===null],
+  ["classifier: the Champion Whistler is a billed performer",
+    ()=>suggestCategory({fullText:"The management presents the Champion Whistler of America in a programme of bird songs."})==="music-performance"],
+  ["classifier: an ALL-CAPS headline may not vote",
+    ()=>suggestCategory({fullText:"the wind whistled down the chimney and rattled the panes NEW OPERA HOUSE GRAND CONCERT TONIGHT admission ten cents"})==="wind-weather"],
+  ["classifier: whistling to himself beats the opera house he sits outside of",
+    ()=>suggestCategory({fullText:"The concert crowd filled the Grand Opera House while outside a ragged newsboy sat on the steps whistling to himself."})==="person-whistling"],
+  ["classifier: a siffleuse notice is stage art",
+    ()=>suggestCategory({fullText:"Mme. Estelle Verne, the celebrated siffleuse, will whistle with orchestral accompaniment before a Toledo audience."})==="music-performance"],
+  ["classifier: 'the whistler' is still a person",
+    ()=>suggestCategory({fullText:"The whistler pursed his lips and whistled a merry tune."})==="person-whistling"],
+  // Re-pinned 2026-08-25 (AD-017): a siffleuse is by definition a stage artist —
+  // in this corpus the term appears almost exclusively in theatrical notices.
+  ["terms: siffleuse is stage art", ()=>categoryFromTerm("siffleuse")==="music-performance"],
   ["terms: case & spaces tolerated", ()=>categoryFromTerm("  Lady Whistler ")==="person-whistling"],
   ["terms: recital seeds performance", ()=>categoryFromTerm("whistling recital")==="music-performance"],
   ["terms: ambiguous is never guessed", ()=>categoryFromTerm("whistling")===null && categoryFromTerm("")===null && categoryFromTerm(null)===null],
   ["record model: matchedTerm field exists", ()=>"matchedTerm" in blankRecord()],
   ["harvest: siffleuse hit is pre-classified", ()=>{ const r=CA.recFromResult({url:"https://x",title:"T",date:"1900"},"siffleuse");
-      return r.category==="person-whistling" && r.matchedTerm==="siffleuse"; }],
+      return r.category==="music-performance" && r.matchedTerm==="siffleuse"; }],
   ["harvest: ambiguous hit stays unsure", ()=>CA.recFromResult({url:"https://y"},"whistling").category==="unsure"],
   ["chip: no text reads 'No text yet'", ()=>catChip({fullText:"",category:"unsure"}).includes("No text yet")],
   ["chip: a user's verdict is respected", ()=>!catChip({fullText:"",category:"unsure",categoryUserSet:true}).includes("No text yet")],
@@ -5669,6 +6195,7 @@ function wireEvents(){
   $("#jsonInput").onchange=async e=>{ const f=e.target.files[0]; e.target.value=""; if(!f) return;
     try{ importJsonData(JSON.parse(await f.text())); }catch(err){ toast("Import failed: "+err.message,"err"); } };
   if($("#btnSelfCheck")) $("#btnSelfCheck").onclick=()=>runSelfChecks(true);
+  if($("#btnClassifierEval")) $("#btnClassifierEval").onclick=()=>runClassifierEval(true);
   // scholarly apparatus: freeze/cite/reproduce, audits, reliability
   $("#btnAudit").onclick=()=>Audit.start();
   $("#btnAudit2").onclick=()=>Audit.start();
