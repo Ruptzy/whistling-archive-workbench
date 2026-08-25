@@ -526,7 +526,15 @@ user can view/edit. Override always wins and is marked as user-set.
   is present. Nothing is installed or copied — the shortcut points at the folder's own
   `index.html`, so the `file://` origin (and therefore her IndexedDB data) is identical to a
   plain double-click. Verified live: Edge found, spaces in the path URI-encoded correctly,
-  icon attached. The icon is a generated placeholder pending the user's own artwork.
+  icon attached. The icon is the user's circular emblem artwork. **Hard-won icon lessons (2026-08-25), verified by
+  elimination on a real Win11 machine:** (1) Explorer's own ICO parser rejects PNG-compressed entries that
+  GDI+-backed APIs happily decode, so every probe said "fine" while the desktop painted blank — the shipped
+  icon is therefore **all-classic-BMP entries (256/64/48/32/16), zero PNG**; (2) Windows caches shortcut
+  icons by path, so the installer copies the icon to a **content-hashed filename** (`icon-<md5-8>.ico`) —
+  new art ⇒ new path ⇒ guaranteed cache miss; (3) the hashed copy must live **in the app folder**, not a
+  fresh AppData folder — the shell refused to serve icons from the latter (an Edge-target control shortcut
+  rendered fine, isolating location as the variable). Hashed copies are pruned by the installer and
+  git-ignored.
 - **First-pulls & pipeline nav. ✅ DONE (2026-08-25).** (1) **Nav order now IS the workflow** —
   Home · Guide | **Fetch · Library** | Search · Network · Map · Trends · Performers | Report | Assistant ·
   Settings, with quiet group dividers (`.nsep`); Fetch was buried fourth despite being step one. (2) The

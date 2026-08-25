@@ -23,3 +23,6 @@ my-findings-*.md
 
 # Chart exports
 *.svg.download
+
+# hashed icon copies created by the installer
+icon-*.ico

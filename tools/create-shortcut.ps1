@@ -33,11 +33,12 @@ $s.WorkingDirectory = $root
 $icon = Join-Path $root 'WhistlingArchive.ico'
 if (Test-Path $icon) {
   $hash = (Get-FileHash -LiteralPath $icon -Algorithm MD5).Hash.Substring(0,8).ToLower()
-  $store = Join-Path $env:LOCALAPPDATA 'WhistlingArchive'
-  New-Item -ItemType Directory -Force $store | Out-Null
-  $dest = Join-Path $store "icon-$hash.ico"
+  # the hashed copy lives IN the app folder: the shell on some machines refuses
+  # to serve shortcut icons from a fresh AppData folder, and the app folder is
+  # the one location empirically proven to render
+  $dest = Join-Path $root "icon-$hash.ico"
   Copy-Item -LiteralPath $icon $dest -Force
-  Get-ChildItem $store -Filter 'icon-*.ico' | Where-Object { $_.FullName -ne $dest } | Remove-Item -Force
+  Get-ChildItem $root -Filter 'icon-*.ico' | Where-Object { $_.FullName -ne $dest } | Remove-Item -Force
   $s.IconLocation = "$dest,0"
 }
 $s.Description = 'Whistling Archive Workbench'
