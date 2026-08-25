@@ -19,7 +19,11 @@ $browser = $browsers | Where-Object { Test-Path $_ } | Select-Object -First 1
 
 $desktop = [Environment]::GetFolderPath('Desktop')
 $ws = New-Object -ComObject WScript.Shell
-$s  = $ws.CreateShortcut((Join-Path $desktop 'Whistling Archive.lnk'))
+# fresh filename: the old 'Whistling Archive.lnk' desktop item accumulated
+# stale icon-cache state that survived every flush — a new name is a new item
+$old = Join-Path $desktop 'Whistling Archive.lnk'
+if (Test-Path $old) { Remove-Item $old -Force }
+$s  = $ws.CreateShortcut((Join-Path $desktop 'Whistling Archive Workbench.lnk'))
 if ($browser) { $s.TargetPath = $browser; $s.Arguments = '--app="' + $uri + '"' }
 else          { $s.TargetPath = $html }    # no Edge/Chrome: open in the default browser
 $s.WorkingDirectory = $root
